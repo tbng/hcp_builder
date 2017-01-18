@@ -42,6 +42,6 @@ do
     # Prepare for Level 2
 
     mkdir -p ${StudyFolder}/${subject}/MNINonLinear/Results/tfMRI_${task}
-    cp -v ../../fsf_templates/tfMRI_${task}_hp200_s4_level2.fsf ${StudyFolder}/${subject}/MNINonLinear/Results/tfMRI_${task}
+    cp -v ${HCPPIPEDIR}/PrepareTaskfMRI/fsf_templates/tfMRI_${task}_hp200_s4_level2.fsf ${StudyFolder}/${subject}/MNINonLinear/Results/tfMRI_${task}
 
 done
