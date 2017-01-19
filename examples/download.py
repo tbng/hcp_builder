@@ -1,3 +1,10 @@
-from hcp_builder.build import download
+from hcp_builder.build import download, make_contrasts
+from hcp_builder.system import configure
 
-download(100307)
+configure()
+
+
+# download(100307)
+make_contrasts(100307)
+
+

@@ -1,4 +1,6 @@
+import glob
 import inspect
+import os
 from os.path import join, dirname
 
 import sys
@@ -29,22 +31,47 @@ def make_contrasts(subject):
     pathname = inspect.getfile(inspect.currentframe())
     script_dir = join(dirname(dirname(pathname)), 'glm_scripts')
     prepare_script = join(script_dir, 'prepare.sh')
-    proc = subprocess.check_output(
-        ['bash', prepare_script, root_path, str(subject)],
-        bufsize=0,  # 0=unbuffered, 1=line-buffered, else buffer-size
-        stderr=subprocess.PIPE)
-    print(proc)
+    try:
+        subprocess.call(
+            ['bash', prepare_script, root_path, str(subject)],
+            bufsize=1,
+            stderr=subprocess.PIPE)
+    except subprocess.CalledProcessError:
+        raise ValueError('HCP Pipeline script failed')
     compute_script = join(script_dir, 'compute_stats.sh')
     for task in ['EMOTION']:
-        process = subprocess.Popen(['bash', compute_script,
-                                    root_path, str(subject), task],
-                                   bufsize=0,
-                                   stderr=subprocess.PIPE,
-                                   stdout=subprocess.PIPE)
-        while True:
-            output = process.stdout.readline()
-            if output == '' and process.poll() is not None:
-                break
-            if output:
-                print(output.strip())
-        rc = process.poll()
+        try:
+            process = subprocess.Popen(['bash', compute_script,
+                                        root_path, str(subject), task],
+                                       bufsize=0,
+                                       stderr=subprocess.PIPE,
+                                       stdout=subprocess.PIPE)
+            while True:
+                output = process.stdout.readline()
+                if output == '' and process.poll() is not None:
+                    break
+                if output:
+                    print(output.strip())
+            rc = process.poll()
+        except subprocess.CalledProcessError:
+            raise ValueError('HCP Pipeline script failed for task %s' % task)
+
+
+def clean_artifacts(subject):
+    root_path = get_data_dirs()[0]
+    s3_keys = get_fmri_path(subject)
+    for dirpath, dirnames, filenames in os.walk(join(root_path, str(subject))):
+        for name in filenames:
+            name = join(dirpath, name)
+            target_name = name.replace(root_path, 'HCP_900')
+            if target_name not in s3_keys:
+                print('rm %s' % name)
+                os.unlink(name)
+    for dirpath, dirnames, filenames in os.walk(join(root_path, str(subject)),
+                                                topdown=False):
+        for dirname in dirnames:
+            dir = join(dirpath, dirname)
+            try:
+                os.rmdir(dir)
+            except OSError:
+                pass

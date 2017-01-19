@@ -96,6 +96,18 @@ log_Msg "Change smoothing to be equal to additional smoothing in FSF file and ch
 cat ${FEATDir}/temp.fsf | sed s/"set fmri(smooth) \"4\""/"set fmri(smooth) \"${AdditionalSmoothingFWHM}\""/g | sed s/_hp200_s4/${TemporalFilterString}${SmoothingString}${RegString}/g > ${FEATDir}/design.fsf
 rm ${FEATDir}/temp.fsf
 
+#Change number of timepoints to match timeseries so that template fsf files can be used
+log_Msg "Change number of timepoints to match timeseries so that template fsf files can be used"
+fsfnpts=`cat ${FEATDir}/design.fsf | grep "set fmri(npts)" | cut -d " " -f 3 | sed 's/"//g'`
+log_Msg "fsfnpts: ${fsfnpts}"
+CIFTInpts=`fslinfo ${ResultsFolder}/${LevelOnefMRIName}/${LevelOnefMRIName}.nii.gz | grep '^dim4' | awk '{print $2}'`
+log_Msg "CIFTInpts: ${CIFTInpts}"
+if [ "$fsfnpts" != "$CIFTInpts" ] ; then
+  cat ${FEATDir}/design.fsf | sed s/"set fmri(npts) \"\?${fsfnpts}\"\?"/"set fmri(npts) ${CIFTInpts}"/g > ${FEATDir}/temp.fsf
+  mv ${FEATDir}/temp.fsf ${FEATDir}/design.fsf
+  log_Msg "Short Run! Reseting FSF Number of Timepoints (""${fsfnpts}"") to Match CIFTI (""${CIFTInpts}"")"
+fi
+
 #Create design files, model confounds if desired
 log_Msg "Create design files, model confounds if desired"
 DIR=`pwd`
@@ -127,4 +139,4 @@ fslmaths ${FEATDir}/${LevelOnefMRIName}"$SmoothingString".nii.gz -bptf `echo "0.
 
 #Run film_gls on subcortical volume data
 log_Msg "Run film_gls on subcortical volume data"
-film_gls --rn=${FEATDir}/StandardVolumeStats --sa --ms=5 --in=${FEATDir}/${LevelOnefMRIName}"$TemporalFilterString""$SmoothingString".nii.gz --pd="$DesignMatrix" --con=${DesignContrasts} --fcon=${DesignfContrasts} --thr=1000
+film_gls --rn=${FEATDir}/StandardVolumeStats --sa --ms=5 --in=${FEATDir}/${LevelOnefMRIName}"$TemporalFilterString""$SmoothingString".nii.gz --pd="$DesignMatrix" --con=${DesignContrasts} --fcon=${DesignfContrasts}

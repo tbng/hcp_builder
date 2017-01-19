@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 StudyFolder="$1"
 subject="$2"
 

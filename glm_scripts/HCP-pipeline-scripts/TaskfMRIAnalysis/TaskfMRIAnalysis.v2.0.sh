@@ -112,3 +112,5 @@ LevelOnefsfNames=`echo $LevelOnefMRINames | sed 's/ /@/g'`
 log_Msg "Combine Data Across Phase Encoding Directions in the Level Two Analysis"
 ${PipelineScripts}/TaskfMRILevel2.v2.0.sh $Subject $ResultsFolder $LevelOnefMRINames $LevelOnefsfNames $LevelTwofMRIName $LevelTwofsfNames $FinalSmoothingFWHM $TemporalFilter $RegName
 echo "set -- $Subject $ResultsFolder $LevelOnefMRINames $LevelOnefsfNames $LevelTwofMRIName $LevelTwofsfNames $FinalSmoothingFWHM $TemporalFilter $RegName"
+
+exit 0
