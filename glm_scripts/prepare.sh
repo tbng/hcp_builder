@@ -1,6 +1,7 @@
 #!/bin/bash
 
-subject="100307"
+StudyFolder="$1"
+subject="$2"
 
 TaskNameList=""
 TaskNameList="${TaskNameList} EMOTION"
@@ -15,7 +16,6 @@ DirectionList=""
 DirectionList="${DirectionList} RL"
 DirectionList="${DirectionList} LR"
 
-StudyFolder="/storage/data/HCP_test"
 
 for task in ${TaskNameList}
 do

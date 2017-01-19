@@ -1,8 +1,8 @@
 #!/bin/bash
 
-StudyFolder="$HOME/data/HCP_test"
-Subject="100307"
-TaskName="EMOTION"
+StudyFolder="$1"
+Subject="$2"
+TaskName="$3"
 
 LevelOneTasks="tfMRI_${TaskName}_RL@tfMRI_${TaskName}_LR"
 LevelOneFSFs="tfMRI_${TaskName}_RL@tfMRI_${TaskName}_LR"
