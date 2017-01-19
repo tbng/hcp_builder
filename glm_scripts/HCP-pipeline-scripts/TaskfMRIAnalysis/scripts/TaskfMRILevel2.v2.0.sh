@@ -98,66 +98,57 @@ feat_model ${LevelTwoFEATDir}/design
 cd $DIR
 
 #Loop over Grayordinates and Standard Volume (if requested) Level 2 Analyses
-log_Msg "Loop over Grayordinates and Standard Volume (if requested) Level 2 Analyses"
-Analyses="StandardVolumeStats"
-log_Msg "Analyses: ${Analyses}"
-
-for Analysis in ${Analyses} ; do
-  log_Msg "Analysis: ${Analysis}"
-  mkdir -p ${LevelTwoFEATDir}/${Analysis}
-
-  #Copy over level one folders and convert CIFTI to NIFTI if required
-  log_Msg "Copy over level one folders and convert CIFTI to NIFTI if required"
-  if [ -e ${FirstFolder}/${Analysis}/cope1.nii.gz ] ; then
-    Grayordinates="NO"
-    i=1
-    for LevelOneFEATDir in ${LevelOneFEATDirSTRING} ; do
-      mkdir -p ${LevelTwoFEATDir}/${Analysis}/${i}
-      cp ${LevelOneFEATDir}/${Analysis}/* ${LevelTwoFEATDir}/${Analysis}/${i}
-      i=$(($i+1))
-    done
-  else
-    echo "Level One Folder Not Found"
-  fi
-
-  #Create dof and Mask
-  log_Msg "Create dof and Mask"
-  MERGESTRING=""
+Analysis="StandardVolumeStats"
+log_Msg "Analysis: ${Analysis}"
+mkdir -p ${LevelTwoFEATDir}/${Analysis}
+#Copy over level one folders and convert CIFTI to NIFTI if required
+log_Msg "Copy over level one folders and convert CIFTI to NIFTI if required"
+if [ -e ${FirstFolder}/${Analysis}/cope1.nii.gz ] ; then
+  Grayordinates="NO"
   i=1
-  while [ $i -le ${NumFirstLevelFolders} ] ; do
-    dof=`cat ${LevelTwoFEATDir}/${Analysis}/${i}/dof`
-    fslmaths ${LevelTwoFEATDir}/${Analysis}/${i}/res4d.nii.gz -Tstd -bin -mul $dof ${LevelTwoFEATDir}/${Analysis}/${i}/dofmask.nii.gz
-    MERGESTRING=`echo "${MERGESTRING}${LevelTwoFEATDir}/${Analysis}/${i}/dofmask.nii.gz "`
+  for LevelOneFEATDir in ${LevelOneFEATDirSTRING} ; do
+    mkdir -p ${LevelTwoFEATDir}/${Analysis}/${i}
+    cp ${LevelOneFEATDir}/${Analysis}/* ${LevelTwoFEATDir}/${Analysis}/${i}
     i=$(($i+1))
   done
-  fslmerge -t ${LevelTwoFEATDir}/${Analysis}/dof.nii.gz $MERGESTRING
-  fslmaths ${LevelTwoFEATDir}/${Analysis}/dof.nii.gz -Tmin -bin ${LevelTwoFEATDir}/${Analysis}/mask.nii.gz
-
-  #Merge COPES and VARCOPES and run 2nd level analysis
-  log_Msg "Merge COPES and VARCOPES and run 2nd level analysis"
-  log_Msg "NumContrasts: ${NumContrasts}"
-  i=1
-  while [ $i -le ${NumContrasts} ] ; do
-	log_Msg "i: ${i}"
-    COPEMERGE=""
-    VARCOPEMERGE=""
-    j=1
-    while [ $j -le ${NumFirstLevelFolders} ] ; do
-      COPEMERGE="${COPEMERGE}${LevelTwoFEATDir}/${Analysis}/${j}/cope${i}.nii.gz "
-      VARCOPEMERGE="${VARCOPEMERGE}${LevelTwoFEATDir}/${Analysis}/${j}/varcope${i}.nii.gz "
-      j=$(($j+1))
-    done
-    fslmerge -t ${LevelTwoFEATDir}/${Analysis}/cope${i}.nii.gz $COPEMERGE
-    fslmerge -t ${LevelTwoFEATDir}/${Analysis}/varcope${i}.nii.gz $VARCOPEMERGE
-    flameo --cope=${LevelTwoFEATDir}/${Analysis}/cope${i}.nii.gz --vc=${LevelTwoFEATDir}/${Analysis}/varcope${i}.nii.gz --dvc=${LevelTwoFEATDir}/${Analysis}/dof.nii.gz --mask=${LevelTwoFEATDir}/${Analysis}/mask.nii.gz --ld=${LevelTwoFEATDir}/${Analysis}/cope${i}.feat --dm=${LevelTwoFEATDir}/design.mat --cs=${LevelTwoFEATDir}/design.grp --tc=${LevelTwoFEATDir}/design.con --runmode=fe
-    i=$(($i+1))
-  done
-
-  #Cleanup Temporary Files
-  log_Msg "Cleanup Temporary Files"
+else
+  echo "Level One Folder Not Found"
+fi
+#Create dof and Mask
+log_Msg "Create dof and Mask"
+MERGESTRING=""
+i=1
+while [ $i -le ${NumFirstLevelFolders} ] ; do
+  dof=`cat ${LevelTwoFEATDir}/${Analysis}/${i}/dof`
+  fslmaths ${LevelTwoFEATDir}/${Analysis}/${i}/res4d.nii.gz -Tstd -bin -mul $dof ${LevelTwoFEATDir}/${Analysis}/${i}/dofmask.nii.gz
+  MERGESTRING=`echo "${MERGESTRING}${LevelTwoFEATDir}/${Analysis}/${i}/dofmask.nii.gz "`
+  i=$(($i+1))
+done
+fslmerge -t ${LevelTwoFEATDir}/${Analysis}/dof.nii.gz $MERGESTRING
+fslmaths ${LevelTwoFEATDir}/${Analysis}/dof.nii.gz -Tmin -bin ${LevelTwoFEATDir}/${Analysis}/mask.nii.gz
+#Merge COPES and VARCOPES and run 2nd level analysis
+log_Msg "Merge COPES and VARCOPES and run 2nd level analysis"
+log_Msg "NumContrasts: ${NumContrasts}"
+i=1
+while [ $i -le ${NumContrasts} ] ; do
+log_Msg "i: ${i}"
+  COPEMERGE=""
+  VARCOPEMERGE=""
   j=1
   while [ $j -le ${NumFirstLevelFolders} ] ; do
-    rm -r ${LevelTwoFEATDir}/${Analysis}/${j}
+    COPEMERGE="${COPEMERGE}${LevelTwoFEATDir}/${Analysis}/${j}/cope${i}.nii.gz "
+    VARCOPEMERGE="${VARCOPEMERGE}${LevelTwoFEATDir}/${Analysis}/${j}/varcope${i}.nii.gz "
     j=$(($j+1))
   done
+  fslmerge -t ${LevelTwoFEATDir}/${Analysis}/cope${i}.nii.gz $COPEMERGE
+  fslmerge -t ${LevelTwoFEATDir}/${Analysis}/varcope${i}.nii.gz $VARCOPEMERGE
+  flameo --cope=${LevelTwoFEATDir}/${Analysis}/cope${i}.nii.gz --vc=${LevelTwoFEATDir}/${Analysis}/varcope${i}.nii.gz --dvc=${LevelTwoFEATDir}/${Analysis}/dof.nii.gz --mask=${LevelTwoFEATDir}/${Analysis}/mask.nii.gz --ld=${LevelTwoFEATDir}/${Analysis}/cope${i}.feat --dm=${LevelTwoFEATDir}/design.mat --cs=${LevelTwoFEATDir}/design.grp --tc=${LevelTwoFEATDir}/design.con --runmode=fe
+  i=$(($i+1))
+done
+#Cleanup Temporary Files
+log_Msg "Cleanup Temporary Files"
+j=1
+while [ $j -le ${NumFirstLevelFolders} ] ; do
+  rm -r ${LevelTwoFEATDir}/${Analysis}/${j}
+  j=$(($j+1))
 done

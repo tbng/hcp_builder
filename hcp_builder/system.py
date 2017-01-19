@@ -1,9 +1,7 @@
-import os
 import inspect
-
-from os.path import join
-
+import os
 from os.path import dirname
+from os.path import join
 
 
 def configure():
@@ -68,9 +66,11 @@ def get_aws_credentials(fname=None, data_dir=None):
             aws_secret = os.environ['HCP_AWS_SECRET_KEY']
             return aws_key, aws_secret
         else:
-            fname = 'aws-credentials.txt'
+            fname = 'parietal_extra/aws-credentials.txt'
     data_dir = get_data_dirs(data_dir)[0]
     fname = join(data_dir, fname)
     file = open(fname, 'r')
     aws_key, aws_secret = file.readline()[:-1].split(',')
     return aws_key, aws_secret
+
+

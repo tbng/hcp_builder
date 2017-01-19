@@ -34,11 +34,6 @@ do
             --templatedir=${HCPPIPEDIR}/PrepareTaskfMRI/fsf_templates \
             --outdir=${StudyFolder}/${subject}/MNINonLinear/Results/tfMRI_${task}_${direction}
 
-        ${HCPPIPEDIR}/PrepareTaskfMRI/scripts/copy_evs_into_results.sh \
-            --studyfolder=${StudyFolder} \
-            --subject=${subject} \
-            --taskname=tfMRI_${task}_${direction}
-
     done
 
     # Prepare for Level 2

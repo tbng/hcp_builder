@@ -1,5 +1,7 @@
 from os.path import join
 
+from hcp_builder.system import get_data_dirs
+
 tasks = [["WM", 1, "2BK_BODY"],
          ["WM", 2, "2BK_FACE"],
          ["WM", 3, "2BK_PLACE"],
@@ -254,3 +256,14 @@ def get_fmri_path(subject,
     subject_evs = [join(subject_dir, ev) for ev in evs]
     out += subject_evs
     return out
+
+
+def get_subject_list(data_dir=None):
+    import pandas as pd
+    import numpy as np
+    data_dir = get_data_dirs(data_dir)[0]
+    df = pd.read_csv(join(data_dir, 'parietal_extra', 'hcp_unrestricted_data.csv'))
+
+    indices = np.logical_and(df['3T_RS-fMRI_PctCompl'] == 100,
+                             df['3T_tMRI_PctCompl'] == 100)
+    return df.Subject[indices].tolist()

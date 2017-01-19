@@ -1,15 +1,14 @@
-import glob
 import inspect
 import os
+import subprocess
+from subprocess import Popen, PIPE, CalledProcessError
 from os.path import join, dirname
 
-import sys
-
-from .s3 import download_from_s3_bucket
 from hcp_builder.system import get_aws_credentials
-from .system import get_data_dirs
+
 from .files import get_fmri_path
-import subprocess
+from .s3 import download_from_s3_bucket
+from .system import get_data_dirs
 
 
 def download(subject, mock=False):
@@ -32,28 +31,16 @@ def make_contrasts(subject):
     script_dir = join(dirname(dirname(pathname)), 'glm_scripts')
     prepare_script = join(script_dir, 'prepare.sh')
     try:
-        subprocess.call(
-            ['bash', prepare_script, root_path, str(subject)],
-            bufsize=1,
-            stderr=subprocess.PIPE)
-    except subprocess.CalledProcessError:
+        subprocess.call(['bash', prepare_script, root_path, str(subject)])
+    except CalledProcessError:
         raise ValueError('HCP Pipeline script failed')
     compute_script = join(script_dir, 'compute_stats.sh')
     for task in ['EMOTION']:
         try:
-            process = subprocess.Popen(['bash', compute_script,
-                                        root_path, str(subject), task],
-                                       bufsize=0,
-                                       stderr=subprocess.PIPE,
-                                       stdout=subprocess.PIPE)
-            while True:
-                output = process.stdout.readline()
-                if output == '' and process.poll() is not None:
-                    break
-                if output:
-                    print(output.strip())
-            rc = process.poll()
-        except subprocess.CalledProcessError:
+            for output in run(['bash', compute_script,
+                               root_path, str(subject), task]):
+                print(output)
+        except CalledProcessError:
             raise ValueError('HCP Pipeline script failed for task %s' % task)
 
 
@@ -75,3 +62,12 @@ def clean_artifacts(subject):
                 os.rmdir(dir)
             except OSError:
                 pass
+
+
+def run(command):
+    process = Popen(command, stdout=PIPE, stderr=PIPE)
+    while True:
+        line = process.stdout.readline().rstrip()
+        if not line:
+            break
+        yield line
