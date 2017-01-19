@@ -93,7 +93,7 @@ fi
 
 #Change smoothing to be equal to additional smoothing in FSF file and change output directory to match total smoothing and highpass
 log_Msg "Change smoothing to be equal to additional smoothing in FSF file and change output directory to match total smoothing and highpass"
-cat ${FEATDir}/temp.fsf | sed s/"set fmri(smooth) \"4\""/"set fmri(smooth) \"${AdditionalSmoothingFWHM}\""/g | sed s/_hp200_s4/${TemporalFilterString}${SmoothingString}${RegString}${ParcellationString}/g > ${FEATDir}/design.fsf
+cat ${FEATDir}/temp.fsf | sed s/"set fmri(smooth) \"4\""/"set fmri(smooth) \"${AdditionalSmoothingFWHM}\""/g | sed s/_hp200_s4/${TemporalFilterString}${SmoothingString}${RegString}/g > ${FEATDir}/design.fsf
 rm ${FEATDir}/temp.fsf
 
 #Create design files, model confounds if desired
