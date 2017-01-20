@@ -9,7 +9,8 @@ def configure():
     pathname = join(dirname(dirname(pathname)), 'glm_scripts')
     os.environ['HCPPIPEDIR'] = join(pathname, 'HCP-pipeline-scripts')
     os.environ['HCPPIPEDIR_tfMRIAnalysis'] = join(
-        os.environ['HCPPIPEDIR'], 'TaskfMRIAnalysis', 'scripts')
+        os.environ['HCPPIPEDIR'],
+        'TaskfMRIAnalysis', 'scripts')
 
 
 def get_data_dirs(data_dir=None):
@@ -59,18 +60,38 @@ def get_data_dirs(data_dir=None):
     return paths
 
 
-def get_aws_credentials(fname=None, data_dir=None):
-    if fname is None:
-        if 'HCP_AWS_KEY' in os.environ and 'HCP_AWS_SECRET_KEY' in os.environ:
-            aws_key = os.environ['HCP_AWS_KEY']
-            aws_secret = os.environ['HCP_AWS_SECRET_KEY']
-            return aws_key, aws_secret
-        else:
-            fname = 'parietal_extra/aws-credentials.txt'
-    data_dir = get_data_dirs(data_dir)[0]
-    fname = join(data_dir, fname)
-    file = open(fname, 'r')
-    aws_key, aws_secret = file.readline()[:-1].split(',')
-    return aws_key, aws_secret
+def get_credentials(filename=None, data_dir=None):
+    """Retrieve credentials for COnnectomeDB and S3 bucket access.
 
+    First try to look whether
 
+    Parameters
+    ----------
+    filename: str,
+        Filename of
+    """
+    try:
+        if filename is None:
+            filename = 'credentials.txt'
+        if not os.path.exists(filename):
+            data_dir = get_data_dirs(data_dir)[0]
+            filename = join(data_dir, filename)
+            if not os.path.exists(filename):
+                if ('HCP_AWS_KEY' in os.environ
+                        and 'HCP_AWS_SECRET_KEY' in os.environ
+                        and 'CDB_USERNAME' in os.environ
+                        and 'CDB_PASSWORD' in os.environ):
+                    aws_key = os.environ['HCP_AWS_KEY']
+                    aws_secret = os.environ['HCP_AWS_SECRET_KEY']
+                    cdb_username = os.environ['CDB_USERNAME']
+                    cdb_password = os.environ['CDB_PASSWORD']
+                    return aws_key, aws_secret, cdb_username, cdb_password
+                else:
+                    raise KeyError('Could not find environment variables.')
+        file = open(filename, 'r')
+        return file.readline()[:-1].split(',')
+    except (KeyError, FileNotFoundError):
+        raise ValueError("Cannot find credentials. Provide them"
+                         "in a file credentials.txt where the script is "
+                         "executed, or in the HCP directory, or in"
+                         "environment variables.")

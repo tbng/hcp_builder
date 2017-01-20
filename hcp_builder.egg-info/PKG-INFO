@@ -2,11 +2,11 @@ Metadata-Version: 1.1
 Name: hcp-builder
 Version: 0.1
 Summary: Download HCP rest + task data from the S3 repo, and runs the FSL GLM on time series.
-Home-page: https://gitlab.inria.fr/amensch/HCP-builder
+Home-page: https://gitlab.inria.fr/amensch/hcp_builder
 Author: Arthur Mensch
 Author-email: arthur.mensch@m4x.org
 License: new BSD
-Download-URL: https://gitlab.inria.fr/amensch/HCP-builder
+Download-URL: https://gitlab.inria.fr/amensch/hcp_builder
 Description: UNKNOWN
 Platform: UNKNOWN
 Classifier: Intended Audience :: Science/Research

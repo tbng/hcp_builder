@@ -40,6 +40,7 @@ glm_scripts/HCP-pipeline-scripts/global/scripts/log.shlib
 glm_scripts/HCP-pipeline-scripts/global/scripts/opts.shlib
 glm_scripts/HCP-pipeline-scripts/global/scripts/version.shlib
 hcp_builder/__init__.py
+hcp_builder/download.py
 hcp_builder/files.py
 hcp_builder/process.py
 hcp_builder/s3.py
