@@ -1,0 +1,23 @@
+Metadata-Version: 1.1
+Name: hcp-builder
+Version: 0.1
+Summary: Download HCP rest + task data from the S3 repo, and runs the FSL GLM on time series.
+Home-page: https://gitlab.inria.fr/amensch/HCP-builder
+Author: Arthur Mensch
+Author-email: arthur.mensch@m4x.org
+License: new BSD
+Download-URL: https://gitlab.inria.fr/amensch/HCP-builder
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved
+Classifier: Programming Language :: C
+Classifier: Programming Language :: Python
+Classifier: Topic :: Software Development
+Classifier: Topic :: Scientific/Engineering
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Unix
+Classifier: Operating System :: MacOS
+Classifier: Programming Language :: Python :: 3.5

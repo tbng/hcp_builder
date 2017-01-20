@@ -7,7 +7,7 @@ from Cython.Build import cythonize
 def configuration(parent_package='', top_path=None):
     from numpy.distutils.misc_util import Configuration
 
-    config = Configuration('HCP-builder', parent_package, top_path)
+    config = Configuration('hcp_builder', parent_package, top_path)
 
     return config
 

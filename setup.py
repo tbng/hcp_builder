@@ -12,9 +12,9 @@ DESCRIPTION = "Download HCP rest + task data from the S3 repo, and runs the FSL 
 LONG_DESCRIPTION = open('README.md').read()
 MAINTAINER = 'Arthur Mensch'
 MAINTAINER_EMAIL = 'arthur.mensch@m4x.org'
-URL = 'https://gitlab.inria.fr/amensch/HCP-builder'
+URL = 'https://gitlab.inria.fr/amensch/hcp_builder'
 LICENSE = 'new BSD'
-DOWNLOAD_URL = 'https://gitlab.inria.fr/amensch/HCP-builder'
+DOWNLOAD_URL = 'https://gitlab.inria.fr/amensch/hcp_builder'
 VERSION = '0.1'
 
 

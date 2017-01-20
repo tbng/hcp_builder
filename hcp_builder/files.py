@@ -208,53 +208,57 @@ evs = ['tfMRI_EMOTION_LR/EVs/EMOTION_Stats.csv',
        'tfMRI_WM_RL/EVs/all_bk_err.txt']
 
 
-def get_fmri_path(subject,
-                  data_dir=None):
+def get_fmri_path(subject, data_type='all'):
     """Utility to download from s3"""
     subject = str(subject)
     out = []
     subject_dir = join('HCP_900', subject, 'MNINonLinear', 'Results')
-    # Rests
-    for run_index in [1, 2]:
-        for run_direction in ['LR', 'RL']:
-            filename = 'rfMRI_REST%i_%s' % (run_index, run_direction)
-            rest_dir = join(subject_dir, filename)
-            rest_func = join(rest_dir, filename + '.nii.gz')
-            mask_func = join(rest_dir, filename + '_SBRef.nii.gz')
-            rest_confounds = ['Movement_AbsoluteRMS_mean.txt',
-                              'Movement_AbsoluteRMS.txt',
-                              'Movement_Regressors_dt.txt',
-                              'Movement_Regressors.txt',
-                              'Movement_RelativeRMS_mean.txt',
-                              'Movement_RelativeRMS.txt']
-            rest_confounds = [join(rest_dir, confound)
-                              for confound in rest_confounds]
-            # out.append(rest_func)
-            # out.append(mask_func)
-            # It is unclear why we would need it
-            # out += rest_confounds
+
+    if data_type not in ['all', 'rest', 'task']:
+        raise ValueError("Wrong data type. Expected ['rest', 'type'], got"
+                         "%s" % data_type)
+
+    if data_type in ['all', 'rest']:
+        for run_index in [1, 2]:
+            for run_direction in ['LR', 'RL']:
+                filename = 'rfMRI_REST%i_%s' % (run_index, run_direction)
+                rest_dir = join(subject_dir, filename)
+                rest_func = join(rest_dir, filename + '.nii.gz')
+                mask_func = join(rest_dir, filename + '_SBRef.nii.gz')
+                rest_confounds = ['Movement_AbsoluteRMS_mean.txt',
+                                  'Movement_AbsoluteRMS.txt',
+                                  'Movement_Regressors_dt.txt',
+                                  'Movement_Regressors.txt',
+                                  'Movement_RelativeRMS_mean.txt',
+                                  'Movement_RelativeRMS.txt']
+                rest_confounds = [join(rest_dir, confound)
+                                  for confound in rest_confounds]
+                out.append(rest_func)
+                out.append(mask_func)
+                out += rest_confounds
     # Tasks
-    for task in ['EMOTION', 'WM', 'MOTOR', 'RELATIONAL', 'GAMBLING',
-                 'SOCIAL', 'LANGUAGE']:
-        for run_direction in ['LR', 'RL']:
-            filename = 'tfMRI_%s_%s' % (task, run_direction)
-            task_dir = join(subject_dir, filename)
-            task_func = join(task_dir, filename + '.nii.gz')
-            mask_func = join(task_dir, filename + '_SBRef.nii.gz')
-            task_confounds = ['Movement_AbsoluteRMS_mean.txt',
-                              'Movement_AbsoluteRMS.txt',
-                              'Movement_Regressors_dt.txt',
-                              'Movement_Regressors.txt',
-                              'Movement_RelativeRMS_mean.txt',
-                              'Movement_RelativeRMS.txt']
-            task_confounds = [join(task_dir, confound)
-                              for confound in task_confounds]
-            out.append(task_func)
-            out.append(mask_func)
-            # out += task_confounds
-    # EVs
-    subject_evs = [join(subject_dir, ev) for ev in evs]
-    out += subject_evs
+    if data_type in ['all', 'task']:
+        for task in ['EMOTION', 'WM', 'MOTOR', 'RELATIONAL', 'GAMBLING',
+                     'SOCIAL', 'LANGUAGE']:
+            for run_direction in ['LR', 'RL']:
+                filename = 'tfMRI_%s_%s' % (task, run_direction)
+                task_dir = join(subject_dir, filename)
+                task_func = join(task_dir, filename + '.nii.gz')
+                mask_func = join(task_dir, filename + '_SBRef.nii.gz')
+                task_confounds = ['Movement_AbsoluteRMS_mean.txt',
+                                  'Movement_AbsoluteRMS.txt',
+                                  'Movement_Regressors_dt.txt',
+                                  'Movement_Regressors.txt',
+                                  'Movement_RelativeRMS_mean.txt',
+                                  'Movement_RelativeRMS.txt']
+                task_confounds = [join(task_dir, confound)
+                                  for confound in task_confounds]
+                out.append(task_func)
+                out.append(mask_func)
+                out += task_confounds
+        # EVs
+        subject_evs = [join(subject_dir, ev) for ev in evs]
+        out += subject_evs
     return out
 
 

@@ -4,6 +4,8 @@ import subprocess
 from subprocess import Popen, PIPE, CalledProcessError
 from os.path import join, dirname
 
+import sys
+
 from hcp_builder.system import get_aws_credentials
 
 from .files import get_fmri_path
@@ -11,10 +13,10 @@ from .s3 import download_from_s3_bucket
 from .system import get_data_dirs
 
 
-def download(subject, mock=False):
+def download(subject, data_type='all', mock=False):
     root_path = get_data_dirs()[0]
     aws_key, aws_secret = get_aws_credentials()
-    s3_keys = get_fmri_path(subject)
+    s3_keys = get_fmri_path(subject, data_type=data_type)
     params = dict(
         bucket='hcp-openaccess',
         out_path=root_path,
@@ -35,11 +37,19 @@ def make_contrasts(subject):
     except CalledProcessError:
         raise ValueError('HCP Pipeline script failed')
     compute_script = join(script_dir, 'compute_stats.sh')
-    for task in ['EMOTION']:
+    for task in ['EMOTION', 'WM', 'MOTOR', 'RELATIONAL', 'GAMBLING', 'SOCIAL', 'LANGUAGE']:
         try:
-            for output in run(['bash', compute_script,
-                               root_path, str(subject), task]):
-                print(output)
+            process = Popen(['bash', compute_script,
+                             root_path, str(subject), task],
+                            stdout=PIPE, stderr=PIPE
+                            )
+            while True:
+                out = process.stdout.read(1)
+                if process.poll() is not None:
+                    break
+                if out != '':
+                    sys.stdout.write(out.decode('utf-8'))
+                    sys.stdout.flush()
         except CalledProcessError:
             raise ValueError('HCP Pipeline script failed for task %s' % task)
 
@@ -66,8 +76,3 @@ def clean_artifacts(subject):
 
 def run(command):
     process = Popen(command, stdout=PIPE, stderr=PIPE)
-    while True:
-        line = process.stdout.readline().rstrip()
-        if not line:
-            break
-        yield line

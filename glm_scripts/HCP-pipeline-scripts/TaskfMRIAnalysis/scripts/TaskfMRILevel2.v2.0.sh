@@ -103,6 +103,7 @@ log_Msg "Analysis: ${Analysis}"
 mkdir -p ${LevelTwoFEATDir}/${Analysis}
 #Copy over level one folders and convert CIFTI to NIFTI if required
 log_Msg "Copy over level one folders and convert CIFTI to NIFTI if required"
+log_Msg "${FirstFolder}/${Analysis}/cope1.nii.gz"
 if [ -e ${FirstFolder}/${Analysis}/cope1.nii.gz ] ; then
   Grayordinates="NO"
   i=1
@@ -131,7 +132,7 @@ log_Msg "Merge COPES and VARCOPES and run 2nd level analysis"
 log_Msg "NumContrasts: ${NumContrasts}"
 i=1
 while [ $i -le ${NumContrasts} ] ; do
-log_Msg "i: ${i}"
+  log_Msg "i: ${i}"
   COPEMERGE=""
   VARCOPEMERGE=""
   j=1
