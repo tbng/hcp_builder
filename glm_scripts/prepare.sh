@@ -29,3 +29,5 @@ done
 
 mkdir -p ${StudyFolder}/${Subject}/MNINonLinear/Results/tfMRI_${TaskName}
 cp -v ${HCPPIPEDIR}/PrepareTaskfMRI/fsf_templates/tfMRI_${TaskName}_hp200_s4_level2.fsf ${StudyFolder}/${Subject}/MNINonLinear/Results/tfMRI_${TaskName}
+
+exit 0

@@ -31,3 +31,5 @@ bash ${HCPPIPEDIR}/TaskfMRIAnalysis/TaskfMRIAnalysis.v2.0.sh \
     --finalsmoothingFWHM=$FinalSmoothingFWHM \
     --temporalfilter=$TemporalFilter \
     --regname=$RegName
+
+exit 0

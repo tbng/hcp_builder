@@ -153,3 +153,5 @@ while [ $j -le ${NumFirstLevelFolders} ] ; do
   rm -r ${LevelTwoFEATDir}/${Analysis}/${j}
   j=$(($j+1))
 done
+
+exit 0

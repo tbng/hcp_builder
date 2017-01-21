@@ -8,6 +8,8 @@ def configure():
     pathname = inspect.getfile(inspect.currentframe())
     pathname = join(dirname(dirname(pathname)), 'glm_scripts')
     os.environ['HCPPIPEDIR'] = join(pathname, 'HCP-pipeline-scripts')
+    print('Setting environment variable HCPPIPEDIR %s'
+          % os.environ['HCPPIPEDIR'])
     os.environ['HCPPIPEDIR_tfMRIAnalysis'] = join(
         os.environ['HCPPIPEDIR'],
         'TaskfMRIAnalysis', 'scripts')

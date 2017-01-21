@@ -26,7 +26,7 @@ def download_and_make_contrasts(subject):
 if __name__ == '__main__':
     configure()
     n_jobs = 24
-    subjects = get_subject_list()[:400]
+    subjects = get_subject_list()[400:]
     Parallel(n_jobs=n_jobs, verbose=10)(delayed(
         download_and_make_contrasts)(subject) for subject in subjects)
 

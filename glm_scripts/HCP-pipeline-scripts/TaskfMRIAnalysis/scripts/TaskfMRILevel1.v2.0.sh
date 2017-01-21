@@ -206,3 +206,5 @@ ${FEATDir}/${LevelOnefMRIName}"$TemporalFilterString""$SmoothingString".nii.gz
 log_Msg "Run film_gls on subcortical volume data"
 film_gls --rn=${FEATDir}/StandardVolumeStats --sa --ms=5 --in=${FEATDir}/${LevelOnefMRIName}"$TemporalFilterString""$SmoothingString".nii.gz \
 --pd="$DesignMatrix" --con=${DesignContrasts} --fcon=${DesignfContrasts} --thr=-100000000000
+
+exit 0
