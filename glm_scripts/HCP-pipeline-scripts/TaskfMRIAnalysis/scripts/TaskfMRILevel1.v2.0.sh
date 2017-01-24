@@ -64,9 +64,6 @@ log_Msg "TR_vol: ${TR_vol}"
 AdditionalSmoothingFWHM=`echo "sqrt(( $FinalSmoothingFWHM ^ 2 ) - ( $OriginalSmoothingFWHM ^ 2 ))" | bc -l`
 log_Msg "AdditionalSmoothingFWHM: ${AdditionalSmoothingFWHM}"
 
-AdditionalSigma=`echo "$AdditionalSmoothingFWHM / ( 2 * ( sqrt ( 2 * l ( 2 ) ) ) )" | bc -l`
-log_Msg "AdditionalSigma: ${AdditionalSigma}"
-
 SmoothingString="_s${FinalSmoothingFWHM}"
 TemporalFilterString="_hp""$TemporalFilter"
 log_Msg "SmoothingString: ${SmoothingString}"
@@ -127,7 +124,7 @@ DesignfContrasts=${FEATDir}/design.fts
 
 ###Standard NIFTI Volume-based Processsing###
 log_Msg "Standard NIFTI Volume-based Processsing"
-  #Add edge-constrained volume smoothing
+#Add edge-constrained volume smoothing
 log_Msg "Add edge-constrained volume smoothing"
 FinalSmoothingSigma=`echo "$FinalSmoothingFWHM / ( 2 * ( sqrt ( 2 * l ( 2 ) ) ) )" | bc -l`
 InputfMRI=${ResultsFolder}/${LevelOnefMRIName}/${LevelOnefMRIName}

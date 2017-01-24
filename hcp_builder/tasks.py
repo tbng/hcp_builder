@@ -7,7 +7,7 @@ from subprocess import CalledProcessError, check_call
 
 import shutil
 
-from hcp_builder.subprocess import rc_run_cmd_basic
+from hcp_builder.subprocess import run_cmd
 from .dataset import get_single_fmri_paths
 from .utils import get_data_dirs
 
@@ -26,13 +26,13 @@ def make_contrasts(subject, tasks=None):
         tasks = [tasks]
     for task in tasks:
         print('%s, %s: Preparing fsl files' % (subject, task))
-        return_code = rc_run_cmd_basic(['bash', prepare_script, root_path, subject, task],
-                         verbose=False)
+        return_code = run_cmd(['bash', prepare_script, root_path, subject, task],
+                              verbose=False)
         if return_code != 0:
             raise ValueError('HCP Pipeline script failed for task %s.' % task)
         print('%s, %s: Learning the GLM' % (subject, task))
-        return_code = rc_run_cmd_basic(['bash', compute_script, root_path, subject, task],
-                             verbose=False)
+        return_code = run_cmd(['bash', compute_script, root_path, subject, task],
+                              verbose=True)
         if return_code != 0:
             raise ValueError('HCP Pipeline script failed for task %s.' % task)
 
