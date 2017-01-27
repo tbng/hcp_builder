@@ -1,4 +1,4 @@
-from hcp_builder.dataset import fetch_hcp_single_subject, get_subject_list
+from hcp_builder.dataset import fetch_single_subject, get_subject_list
 from sklearn.externals.joblib import Parallel
 from sklearn.externals.joblib import delayed
 
@@ -7,7 +7,7 @@ from hcp_builder.utils import configure
 
 def download(subject):
     try:
-        fetch_hcp_single_subject(subject, data_type='rest')
+        fetch_single_subject(subject, data_type='rest')
         with open('%s_rest_download_done' % subject, 'w+') as f:
             f.write('Done downloading.')
     except:

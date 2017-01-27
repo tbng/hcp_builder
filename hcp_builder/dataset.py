@@ -1,11 +1,15 @@
 import os
 from os.path import join
 
+import nibabel
+
 from .s3 import download_from_s3_bucket
 from .utils import get_data_dirs, get_credentials
 from nilearn.datasets.utils import _fetch_file
 
-evs = {'EMOTION': {'EMOTION_Stats.csv',
+TASK_LIST = ['EMOTION', 'WM', 'MOTOR', 'RELATIONAL', 'GAMBLING', 'SOCIAL', 'LANGUAGE']
+
+EVS = {'EMOTION': {'EMOTION_Stats.csv',
                    'Sync.txt',
                    'fear.txt',
                    'neut.txt'},
@@ -77,9 +81,11 @@ evs = {'EMOTION': {'EMOTION_Stats.csv',
        }
 
 
-def fetch_hcp_single_subject(subject, data_type='all', tasks=None,
-                             rest_sessions=None,
-                             mock=False):
+def fetch_single_subject(subject, data_type='all', tasks=None,
+                         rest_sessions=None,
+                         overwrite=False,
+                         mock=False,
+                         verbose=0):
     root_path = get_data_dirs()[0]
     aws_key, aws_secret, _, _ = get_credentials()
     s3_keys = get_single_fmri_paths(subject, data_type=data_type,
@@ -90,9 +96,19 @@ def fetch_hcp_single_subject(subject, data_type='all', tasks=None,
         out_path=root_path,
         aws_key=aws_key,
         aws_secret=aws_secret,
-        overwrite=False,
+        overwrite=overwrite,
         prefix='HCP_900')
-    download_from_s3_bucket(key_list=s3_keys, mock=mock, **params)
+    if verbose > 0:
+        print('Downloading files for subject %s, task %s' % (subject, tasks))
+    filenames = download_from_s3_bucket(key_list=s3_keys, mock=mock,
+                                        verbose=verbose-1, **params)
+    for filename in filenames:
+        name, ext = os.path.splitext(filename)
+        if ext == '.gz':
+            try:
+                _ = nibabel.load(filename).get_shape()
+            except:
+                raise ConnectionError('Some files were corrupted. Rerun.')
 
 
 def fetch_unrestricted_behavioral_data(data_dir=None, overwrite=False,
@@ -150,8 +166,7 @@ def get_single_fmri_paths(subject, data_type='all',
     # Tasks
     if data_type in ['all', 'task']:
         if tasks is None:
-            tasks = ['EMOTION', 'WM', 'MOTOR', 'RELATIONAL', 'GAMBLING',
-                     'SOCIAL', 'LANGUAGE']
+            tasks = TASK_LIST
         elif isinstance(tasks, str):
             tasks = [tasks]
         for task in tasks:
@@ -166,13 +181,15 @@ def get_single_fmri_paths(subject, data_type='all',
                                   'Movement_Regressors.txt',
                                   'Movement_RelativeRMS_mean.txt',
                                   'Movement_RelativeRMS.txt']
+                task_fsf = join(task_dir, "tfMRI_%s_%s_hp200_s4_level1.fsf" % (task, run_direction))
                 task_confounds = [join(task_dir, confound)
                                   for confound in task_confounds]
                 out.append(task_func)
                 out.append(mask_func)
+                out.append(task_fsf)
                 out += task_confounds
                 # EVs
-                subject_evs = [join(task_dir, 'EVs', ev) for ev in evs[task]]
+                subject_evs = [join(task_dir, 'EVs', ev) for ev in EVS[task]]
                 out += subject_evs
     return out
 

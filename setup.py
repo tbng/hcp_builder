@@ -43,6 +43,9 @@ def setup_package():
 
     from numpy.distutils.core import setup
 
+    bash_files = [(d, [os.path.join(d, f) for f in files])
+                   for d, folders, files in os.walk('glm_scripts')]
+
     setup(configuration=configuration,
           packages=find_packages(),
           name=DISTNAME,
@@ -53,6 +56,7 @@ def setup_package():
           license=LICENSE,
           url=URL,
           version=VERSION,
+          data_files=bash_files,
           download_url=DOWNLOAD_URL,
           long_description=LONG_DESCRIPTION,
           zip_safe=False,  # the package can run out of an .egg file

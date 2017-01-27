@@ -6,16 +6,19 @@ Run GLM on HCP data using nistats.
 import inspect
 import os
 import re
+import warnings
 from copy import deepcopy
 from os.path import join, dirname
 
 import nibabel
 import numpy as np
 import pandas as pd
+import shutil
 from hcp_builder.utils import run_cmd
 from nilearn._utils import check_niimg
 from nilearn.image import new_img_like
 from nistats.first_level_model import FirstLevelModel
+from numpy import VisibleDeprecationWarning
 from sklearn.externals.joblib import Memory
 
 from .utils import get_data_dirs, configure
@@ -106,7 +109,7 @@ def read_fsl_design_file(design_filename):
     n_contrasts = int(re.search(NUM_CON_REGX, design_conf).group("ncon_real"))
 
     # initialize 2D array of contrasts
-    contrasts = np.zeros((n_contrasts, n_contrasts))
+    contrasts = np.zeros((n_contrasts, n_conditions))
 
     # lookup EV titles
     conditions = [item.group("evtitle") for item in re.finditer(
@@ -117,11 +120,6 @@ def read_fsl_design_file(design_filename):
     contrast_ids = [item.group("conname_real") for item in re.finditer(
         CON_TITLE_REGX, design_conf)]
     assert len(contrast_ids) == n_contrasts
-
-    # # lookup EV (condition) shapes
-    # condition_shapes = [int(item.group("shape")) for item in re.finditer(
-    #         EV_SHAPE_REGX, design_conf)]
-    # print(condition_shapes)
 
     # lookup EV (condition) custom files
     timing_files = [_get_abspath_relative_to_file(item.group("custom"),
@@ -197,7 +195,9 @@ def make_paradigm_from_timing_files(timing_files, trial_types=None):
                          'modulation': amplitudes})
 
 
-def run_glm(subject, task):
+def run_nistats_glm(subject, task, verbose=0):
+    warnings.filterwarnings('ignore', category=VisibleDeprecationWarning)
+
     hrf_model = "spm + derivative"
     drift_model = "polynomial"
     drift_order = 2
@@ -207,39 +207,37 @@ def run_glm(subject, task):
     output_dir = join(get_data_dirs()[0], 'glm', subject)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    memory = Memory(os.path.join(output_dir, "cache_dir", subject))
+    memory = Memory(os.path.join(output_dir, "cache_dir", subject), verbose=0)
     sessions = ['RL', 'LR']
     session_models = {}
     session_contrasts = {}
     session_events = {}
     session_files = {}
-    session_masks = {}
     # the actual GLM stuff
+
+    masks = []
+    mask_file = None
+    for session in sessions:
+        mask_file = check_niimg(join(subject_data_dir,
+                                     "tfMRI_%s_%s/tfMRI_%s_%s_SBRef.nii.gz" % (
+                                         task, session, task, session)))
+        masks.append(mask_file.get_data() != 0)
+    mask = np.logical_and(masks[0], masks[1])
+    mask = new_img_like(mask_file, mask, copy_header=False)
+
     for session in sessions:
         fmri_file = os.path.join(subject_data_dir,
                                  "tfMRI_%s_%s/tfMRI_%s_%s.nii.gz" % (
                                      task, session, task, session))
         session_files[session] = fmri_file
-        mask_file = check_niimg(join(subject_data_dir,
-                                     "tfMRI_%s_%s/tfMRI_%s_%s_SBRef.nii.gz" % (
-                                         task, session, task, session)))
-        mask_file = new_img_like(mask_file,
-                                 mask_file.get_data() != 0, copy_header=False)
-        session_masks[session] = mask_file
         design_file = os.path.join(subject_data_dir,
                                    "tfMRI_%s_%s/tfMRI_%s_%s_hp200_s4_level1.fsf"
                                    % (task, session, task, session))
         # read the experimental setup
-        print("Reading experimental setup from %s ..." % design_file)
+        if verbose > 0:
+            print("Reading experimental setup from %s ..." % design_file)
         trial_types, timing_files, contrasts = read_fsl_design_file(
             design_file)
-
-        # Pad contrast with 1, for subject id
-        for i, (contrast_name, contrast_val) in enumerate(contrasts):
-            contrast_val = np.hstack([contrast_val, np.zeros(1)])
-            contrasts[i] = (contrast_name, contrast_val)
-
-        session_contrasts[session] = contrasts
 
         # fix timing filenames as we load the fsl file one directory
         # higher than expected
@@ -247,73 +245,65 @@ def run_glm(subject, task):
             task, session)) for tf in timing_files]
 
         # make design matrix
-        print("Constructing design matrix for direction %s ..." % session)
+        if verbose > 0:
+            print("Constructing design matrix for direction %s ..." % session)
         events = make_paradigm_from_timing_files(timing_files,
                                                  trial_types=trial_types)
         session_events[session] = events
         # convert contrasts to dict
-        level1_mode = FirstLevelModel(mask=mask_file,
-                                      smoothing_fwhm=4,
-                                      standardize=True,
-                                      memory=memory,
-                                      signal_scaling=False,
-                                      period_cut=0,
-                                      t_r=.72,
-                                      hrf_model=hrf_model,
-                                      drift_model=drift_model,
-                                      drift_order=drift_order,
-                                      subject_id=session,
-                                      verbose=1)
-        level1_mode.fit(fmri_file, events)
-        session_models[session] = level1_mode
+        level1_model = FirstLevelModel(mask=mask,
+                                       smoothing_fwhm=4,
+                                       standardize=True,
+                                       memory=memory,
+                                       signal_scaling=False,
+                                       period_cut=0,
+                                       t_r=.72,
+                                       hrf_model=hrf_model,
+                                       drift_model=drift_model,
+                                       drift_order=drift_order,
+                                       subject_id=session,
+                                       verbose=verbose-1)
+        level1_model.fit(fmri_file, events)
+        session_models[session] = level1_model
 
-    # contrasts = deepcopy(session_contrasts['RL'])
-    # # Do not use memory as it is buggy
-    # level2_model = SecondLevelModel(smoothing_fwhm=0, verbose=1, memory=memory)
-    # level2_model.fit([session_models['RL'], session_models['LR']],
-    #                  first_level_conditions=contrasts)
-    #
-    # # Pad with an extra 0 to contruct level 2 contrast
-    # for i, (contrast_name, contrast_val) in enumerate(contrasts):
-    #     contrast_val = np.hstack([contrast_val, np.zeros(1)])
-    #     contrasts[i] = (contrast_name, contrast_val)
-    # session_contrasts['level2'] = contrasts
-    # session_models['level2'] = level2_model
+        # Pad contrast with 1, for subject id
+        for i, (contrast_name, contrast_val) in enumerate(contrasts):
+            size_contrast = contrast_val.shape[0]
+            new_contrast_val = np.zeros(level1_model.
+                                        design_matrices_[0].shape[1])
+            new_contrast_val[:size_contrast] = contrast_val
+            contrasts[i] = (contrast_name, new_contrast_val)
 
-    contrasts = deepcopy(session_contrasts['RL'])
-    level2_model_refit = FirstLevelModel(mask=session_masks['RL'],
-                                         smoothing_fwhm=4,
-                                         standardize=True,
-                                         memory=memory,
-                                         signal_scaling=False,
-                                         period_cut=0,
-                                         t_r=.72,
-                                         hrf_model=hrf_model,
-                                         drift_model=drift_model,
-                                         drift_order=drift_order,
-                                         subject_id='level2',
-                                         verbose=1)
-    level2_model_refit.fit([session_files['RL'], session_files['LR']],
-                           events=[session_events['RL'], session_events['LR']])
-    session_contrasts['level2'] = contrasts
-    session_models['level2'] = level2_model_refit
+        session_contrasts[session] = contrasts
 
-    for session in ['LR', 'RL', 'level2']:
+    z_maps = {}
+    eff_maps = {}
+    for contrast_name, contrast_val in contrasts:
+        z_maps[contrast_name] = {}
+        eff_maps[contrast_name] = {}
+    for session in sessions:
         model = session_models[session]
         contrasts = session_contrasts[session]
         model_output_dir = join(output_dir, session)
         if not os.path.exists(model_output_dir):
             os.makedirs(model_output_dir)
-        for contrast_name, contrast_val in contrasts:
-            print("\tContrast: %s" % contrast_name)
-            # save computed mask
-            mask_path = os.path.join(model_output_dir, "mask.nii.gz")
+        # Hack to avoid caching unmask
+        model.masker_.memory = Memory(None)
+        model.masker_.memory_level = 0
+        mask_path = os.path.join(model_output_dir, "mask.nii.gz")
+        if verbose > 0:
             print("Saving mask image to %s ..." % mask_path)
-            model.masker_.mask_img_.to_filename(mask_path)
+        model.masker_.mask_img_.to_filename(mask_path)
+        for contrast_name, contrast_val in contrasts:
+            if verbose > 0:
+                print("\tContrast: %s" % contrast_name)
+            # save computed mask
             z_map = model.compute_contrast(
                 contrast_val, output_type='z_score')
+            z_maps[contrast_name][session] = z_map
             eff_map = model.compute_contrast(
                 contrast_val, output_type='effect_size')
+            eff_maps[contrast_name][session] = eff_map
             # store stat maps to disk
             for map_type, out_map in zip(['z', 'effects'], [z_map, eff_map]):
                 map_dir = os.path.join(model_output_dir, '%s_maps' % map_type)
@@ -321,19 +311,47 @@ def run_glm(subject, task):
                     os.makedirs(map_dir)
                 map_path = os.path.join(map_dir, '%s_%s.nii.gz' % (map_type,
                                                                    contrast_name))
-                print("\t\tWriting %s ..." % map_path)
                 nibabel.save(out_map, map_path)
 
-    print("Done (subject %s)" % subject)
+    # XXX: we will use SecondLevelModel once it works
+    session = 'level2'
+    contrasts = session_contrasts['RL']
+    mask = join(output_dir, 'RL', 'mask.nii.gz')
+    model_output_dir = join(output_dir, session)
+    if not os.path.exists(model_output_dir):
+        os.makedirs(model_output_dir)
+    # Hack to avoid caching unmask
+    mask_path = os.path.join(model_output_dir, "mask.nii.gz")
+    if verbose > 0:
+        print("Saving mask image to %s ..." % mask_path)
+    shutil.copy(mask, mask_path)
+    for contrast_name, contrast_val in contrasts:
+        if verbose > 0:
+            print("\tContrast: %s" % contrast_name)
+        # save computed mask
+        z_map = new_img_like(z_maps[contrast_name]['LR'],
+                             z_maps[contrast_name]['LR'].get_data()
+                             + z_maps[contrast_name]['RL'].get_data())
+        eff_map = new_img_like(eff_maps[contrast_name]['LR'],
+                               eff_maps[contrast_name]['LR'].get_data()
+                               + eff_maps[contrast_name]['RL'].get_data())
+        # store stat maps to disk
+        for map_type, out_map in zip(['z', 'effects'], [z_map, eff_map]):
+            map_dir = os.path.join(model_output_dir, '%s_maps' % map_type)
+            if not os.path.exists(map_dir):
+                os.makedirs(map_dir)
+            map_path = os.path.join(map_dir, '%s_%s.nii.gz' % (map_type,
+                                                               contrast_name))
+            nibabel.save(out_map, map_path)
+    if verbose > 0:
+        print("Done (subject %s)" % subject)
 
 
-def make_contrasts(subject, tasks=None, backend='fsl'):
+def run_glm(subject, tasks=None, backend='fsl', verbose=0):
     root_path = get_data_dirs()[0]
     pathname = inspect.getfile(inspect.currentframe())
     script_dir = join(dirname(dirname(pathname)), 'glm_scripts')
     subject = str(subject)
-    prepare_script = join(script_dir, 'prepare.sh')
-    compute_script = join(script_dir, 'compute_stats.sh')
     if tasks is None:
         tasks = ['EMOTION', 'WM', 'MOTOR', 'RELATIONAL',
                  'GAMBLING', 'SOCIAL', 'LANGUAGE']
@@ -341,16 +359,22 @@ def make_contrasts(subject, tasks=None, backend='fsl'):
         tasks = [tasks]
     if backend == 'fsl':
         configure()
+        prepare_script = join(script_dir, 'prepare.sh')
+        compute_script = join(script_dir, 'compute_stats.sh')
         for task in tasks:
-            print('%s, %s: Preparing fsl files' % (subject, task))
+            if verbose > 0:
+                print('%s, %s: Preparing fsl files' % (subject, task))
             run_cmd(['bash', prepare_script, root_path, subject, task],
-                    verbose=False)
-            print('%s, %s: Learning the GLM' % (subject, task))
+                    verbose=verbose-1)
+            if verbose > 0:
+                print('%s, %s: Learning the GLM with FSL' % (subject, task))
             run_cmd(['bash', compute_script, root_path, subject,
                      task],
-                    verbose=True)
+                    verbose=verbose-1)
     elif backend == 'nistats':
         for task in tasks:
-            run_glm(subject, task)
+            if verbose > 0:
+                print('%s, %s: Learning the GLM with nistats' % (subject, task))
+            run_nistats_glm(subject, task, verbose=verbose-1)
     else:
         raise ValueError('Wrong backend')

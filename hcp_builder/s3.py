@@ -114,6 +114,7 @@ def download_from_s3_bucket(bucket, out_path, key_list,
                             aws_secret,
                             prefix='', overwrite=False,
                             mock=False,
+                            verbose=0,
                             **kwargs):
     n_retry = 3
     start_time = time.time()
@@ -138,7 +139,8 @@ def download_from_s3_bucket(bucket, out_path, key_list,
                     op.islink(op.split(fname)[0])):
                 os.makedirs(op.split(fname)[0])
             if not (op.exists(fname) or op.islink(fname)) or overwrite:
-                print('Downloading %s from %s' % (fname, bucket))
+                if verbose > 0:
+                    print('Downloading %s from %s' % (fname, bucket))
                 for ii_try in range(n_retry):
                     try:
                         download_from_s3(
@@ -161,11 +163,13 @@ def download_from_s3_bucket(bucket, out_path, key_list,
                             with open(error_fname, 'w') as fid:
                                 fid.write(msg)
             else:
-                print("%s exists. Doing nothing" % fname)
+                if verbose > 0:
+                    print("%s exists. Doing nothing" % fname)
     elapsed_time = time.time() - start_time
-    print('Elapsed time downloading {} from s3 {}'.format(
-        bucket,
-        time.strftime('%H:%M:%S', time.gmtime(elapsed_time))))
+    if verbose > 0:
+        print('Elapsed time downloading {} from s3 {}'.format(
+            bucket,
+            time.strftime('%H:%M:%S', time.gmtime(elapsed_time))))
     return files_written
 
 
