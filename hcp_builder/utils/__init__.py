@@ -6,7 +6,6 @@ import sys
 from os.path import dirname
 from os.path import join
 
-
 def configure():
     pathname = inspect.getfile(inspect.currentframe())
     pathname = join(dirname(dirname(pathname)), 'glm_scripts')
@@ -129,7 +128,7 @@ def run_cmd(lst_cmd, verbose=False):
 
 
 def clean_artifacts(subject, tasks=None):
-    from .dataset import get_single_fmri_paths
+    from ..dataset import get_single_fmri_paths
 
     root_path = get_data_dirs()[0]
     subject = str(subject)

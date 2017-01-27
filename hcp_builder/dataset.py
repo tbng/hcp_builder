@@ -3,7 +3,7 @@ from os.path import join
 
 import nibabel
 
-from .s3 import download_from_s3_bucket
+from .utils.s3 import download_from_s3_bucket
 from .utils import get_data_dirs, get_credentials
 from nilearn.datasets.utils import _fetch_file
 

@@ -2,7 +2,7 @@ import time
 from hcp_builder.glm import run_glm
 from hcp_builder.dataset import fetch_single_subject
 
-from modl.utils.nifti import monkey_patch_nifti_image
+from hcp_builder.utils.nifti import monkey_patch_nifti_image
 
 monkey_patch_nifti_image()
 t0 = time.time()

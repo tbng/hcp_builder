@@ -2,6 +2,11 @@ import os
 import traceback
 from os.path import join
 
+
+from hcp_builder.utils.nifti import monkey_patch_nifti_image
+
+monkey_patch_nifti_image()
+
 from hcp_builder.dataset import fetch_single_subject,\
     get_subject_list, TASK_LIST
 from sklearn.externals.joblib import Parallel
@@ -38,7 +43,7 @@ if __name__ == '__main__':
     if not os.path.exists(error_dir):
         os.makedirs(error_dir)
     n_jobs = 36
-    subjects = get_subject_list()[:1]
+    subjects = get_subject_list()
     tasks = TASK_LIST
     Parallel(n_jobs=n_jobs, verbose=10)(delayed(
         download_and_make_contrasts)(subject, task, verbose=1) for subject in subjects

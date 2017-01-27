@@ -7,7 +7,6 @@ import inspect
 import os
 import re
 import warnings
-from copy import deepcopy
 from os.path import join, dirname
 
 import nibabel
@@ -204,10 +203,11 @@ def run_nistats_glm(subject, task, verbose=0):
     subject = str(subject)
     subject_data_dir = join(get_data_dirs()[0], subject,
                             'MNINonLinear', 'Results')
-    output_dir = join(get_data_dirs()[0], 'glm', subject)
+    output_dir = join(get_data_dirs()[0], 'glm', subject, task)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    memory = Memory(os.path.join(output_dir, "cache_dir", subject), verbose=0)
+    memory = Memory(cachedir=None)
+    # Memory(os.path.join(output_dir, "cache_dir", subject), verbose=0)
     sessions = ['RL', 'LR']
     session_models = {}
     session_contrasts = {}

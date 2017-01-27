@@ -9,6 +9,8 @@ def configuration(parent_package='', top_path=None):
 
     config = Configuration('hcp_builder', parent_package, top_path)
 
+    config.add_subpackage('utils')
+
     return config
 
 
