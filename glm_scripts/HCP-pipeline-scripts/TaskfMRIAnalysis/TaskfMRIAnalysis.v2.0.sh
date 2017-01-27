@@ -93,17 +93,17 @@ LevelOnefsfNames=`echo $LevelOnefsfNames | sed 's/@/ /g'`
 AtlasFolder="${Path}/${Subject}/MNINonLinear"
 ResultsFolder="${AtlasFolder}/Results"
 
-#Run Level One Analysis for Both Phase Encoding Directions
-log_Msg "Run Level One Analysis for Both Phase Encoding Directions"
-
-i=1
-for LevelOnefMRIName in $LevelOnefMRINames ; do
-  log_Msg "LevelOnefMRIName: ${LevelOnefMRIName}"
-  LevelOnefsfName=`echo $LevelOnefsfNames | cut -d " " -f $i`
-  ${PipelineScripts}/TaskfMRILevel1.v2.0.sh $Subject $ResultsFolder $LevelOnefMRIName $LevelOnefsfName $OriginalSmoothingFWHM $Confound $FinalSmoothingFWHM $TemporalFilter $RegName
-  echo "set -- $Subject $ResultsFolder $LevelOnefMRIName $LevelOnefsfName $OriginalSmoothingFWHM $Confound $FinalSmoothingFWHM $TemporalFilter $RegName"
-  i=$(($i+1))
-done
+##Run Level One Analysis for Both Phase Encoding Directions
+#log_Msg "Run Level One Analysis for Both Phase Encoding Directions"
+#
+#i=1
+#for LevelOnefMRIName in $LevelOnefMRINames ; do
+#  log_Msg "LevelOnefMRIName: ${LevelOnefMRIName}"
+#  LevelOnefsfName=`echo $LevelOnefsfNames | cut -d " " -f $i`
+#  ${PipelineScripts}/TaskfMRILevel1.v2.0.sh $Subject $ResultsFolder $LevelOnefMRIName $LevelOnefsfName $OriginalSmoothingFWHM $Confound $FinalSmoothingFWHM $TemporalFilter $RegName
+#  echo "set -- $Subject $ResultsFolder $LevelOnefMRIName $LevelOnefsfName $OriginalSmoothingFWHM $Confound $FinalSmoothingFWHM $TemporalFilter $RegName"
+#  i=$(($i+1))
+#done
 
 LevelOnefMRINames=`echo $LevelOnefMRINames | sed 's/ /@/g'`
 LevelOnefsfNames=`echo $LevelOnefMRINames | sed 's/ /@/g'`
