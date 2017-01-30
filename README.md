@@ -23,5 +23,5 @@ CDB_PASSWORD: for behavioral_access
 - automate restart when failures
 - download non-completed subjects
 - write functions to copy resources in the HCP_DATA dir
-- move nilearn like fetchers from modl into the package
+- move nilearn like fetchers from modl into the package. For now, you may use development branch of `github.com/arthurmensch/modl`
 - merge downloaders and fetchers as in nilearn (?)

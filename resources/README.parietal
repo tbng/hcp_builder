@@ -1,0 +1,11 @@
+# To be copied in the HCP_DATA root
+
+This directory contains some extra data compared to the S3 bucket, obtained with hcp_builder
+
+https://gitlab.inria.fr/parietal/HCP-builder
+
+- behavioral folder: contains unrestricted + restricted behavioral data + custom made filters to match Smith study (Nature Neuroscience)
+- glm folder: results from nistats analysis: SUBJECT/TASK/[direction,'level2']/[z,effect]_maps/[z, effect]_CONTRAST.nii.gz
+- mask_img.nii.gz: global mask for rest + task
+- aws-credentials.txt: AWS credentials for loading HCP from the public S3 bucket
+- failures folder: log download and GLM fit failures
