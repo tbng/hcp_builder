@@ -6,6 +6,9 @@ import sys
 from os.path import dirname
 from os.path import join
 
+import shutil
+
+
 def configure():
     pathname = inspect.getfile(inspect.currentframe())
     pathname = join(dirname(dirname(pathname)), 'glm_scripts')
@@ -127,7 +130,7 @@ def run_cmd(lst_cmd, verbose=False):
         print("Command succeeded!")
 
 
-def clean_artifacts(subject, tasks=None):
+def clean_artifacts(subject, tasks=None, verbose=0):
     from ..dataset import get_single_fmri_paths
 
     root_path = get_data_dirs()[0]
@@ -149,8 +152,12 @@ def clean_artifacts(subject, tasks=None):
                         name = join(dirpath, name)
                         target_name = name.replace(root_path, 'HCP_900')
                         if target_name not in s3_keys:
-                            print('Delete %s' % name)
-                            os.unlink(name)
+                            if verbose > 0:
+                                print('Delete %s' % name)
+                            try:
+                                os.unlink(name)
+                            except (IOError, OSError):
+                                print('IO ERROR')
                 for dirpath, dirnames, filenames in os.walk(task_dir,
                                                             topdown=False):
                     for dirname in dirnames:
@@ -161,4 +168,7 @@ def clean_artifacts(subject, tasks=None):
                             pass
             lvl2_task_dir = join(subject_dir, 'tfMRI_%s' % task)
             if os.path.exists(lvl2_task_dir):
-                shutil.rmtree(lvl2_task_dir)
+                try:
+                    shutil.rmtree(lvl2_task_dir)
+                except (IOError, OSError):
+                    print('IO ERROR')

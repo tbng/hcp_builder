@@ -3,6 +3,7 @@ MANIFEST.in
 README.md
 requirements.txt
 setup.py
+examples/clean_fsl.py
 examples/download_rest.py
 examples/download_single.py
 examples/download_tasks.py
@@ -42,11 +43,12 @@ glm_scripts/HCP-pipeline-scripts/global/scripts/version.shlib
 hcp_builder/__init__.py
 hcp_builder/dataset.py
 hcp_builder/glm.py
-hcp_builder/s3.py
 hcp_builder/setup.py
-hcp_builder/utils.py
 hcp_builder.egg-info/PKG-INFO
 hcp_builder.egg-info/SOURCES.txt
 hcp_builder.egg-info/dependency_links.txt
 hcp_builder.egg-info/not-zip-safe
 hcp_builder.egg-info/top_level.txt
+hcp_builder/utils/__init__.py
+hcp_builder/utils/nifti.py
+hcp_builder/utils/s3.py
