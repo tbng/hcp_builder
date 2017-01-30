@@ -20,7 +20,8 @@ from nistats.first_level_model import FirstLevelModel
 from numpy import VisibleDeprecationWarning
 from sklearn.externals.joblib import Memory
 
-from .utils import get_data_dirs, configure
+from .utils import configure
+from hcp_builder.dataset import get_data_dirs
 
 # regex for contrasts
 CON_REAL_REGX = ("set fmri\(con_real(?P<con_num>\d+?)\.(?P<ev_num>\d+?)\)"
@@ -350,7 +351,7 @@ def run_nistats_glm(subject, task, verbose=0):
 def run_glm(subject, tasks=None, backend='fsl', verbose=0):
     root_path = get_data_dirs()[0]
     pathname = inspect.getfile(inspect.currentframe())
-    script_dir = join(dirname(dirname(pathname)), 'glm_scripts')
+    script_dir = join(dirname(dirname(pathname)), 'hcp_scripts')
     subject = str(subject)
     if tasks is None:
         tasks = ['EMOTION', 'WM', 'MOTOR', 'RELATIONAL',

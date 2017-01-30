@@ -1,5 +1,6 @@
 recursive-include examples *.py
-recursive-include glm_scripts *
+recursive-include hcp_scripts *
+recursive-include resources *
 include LICENSE
 include README.md
 include requirements.txt

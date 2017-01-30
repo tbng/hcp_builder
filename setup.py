@@ -8,7 +8,8 @@ import sys
 from setuptools import find_packages
 
 DISTNAME = 'hcp_builder'
-DESCRIPTION = "Download HCP rest + task data from the S3 repo, and runs the FSL GLM on time series."
+DESCRIPTION = "Download HCP rest + task data from the S3 repo," \
+              "and runs the nistats/FSL GLM on time series."
 LONG_DESCRIPTION = open('README.md').read()
 MAINTAINER = 'Arthur Mensch'
 MAINTAINER_EMAIL = 'arthur.mensch@m4x.org'
@@ -44,7 +45,7 @@ def setup_package():
     from numpy.distutils.core import setup
 
     bash_files = [(d, [os.path.join(d, f) for f in files])
-                   for d, folders, files in os.walk('glm_scripts')]
+                   for d, folders, files in os.walk('hcp_scripts')]
 
     setup(configuration=configuration,
           packages=find_packages(),
