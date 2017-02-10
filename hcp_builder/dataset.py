@@ -1,5 +1,6 @@
 import glob
 import os
+import shutil
 import warnings
 from os.path import join
 
@@ -7,6 +8,8 @@ import nibabel
 import pandas as pd
 from nilearn.datasets.utils import _fetch_file
 from sklearn.datasets.base import Bunch
+
+import numpy as np
 
 from .utils.s3 import download_from_s3_bucket
 
@@ -188,7 +191,7 @@ def fetch_subject_list(data_dir=None, n_subjects=None,
 def _convert_to_s3_target(filename, data_dir=None):
     data_dir = get_data_dirs(data_dir)[0]
     if data_dir in filename:
-        filename = filename.replace(data_dir, 'HCP_900')
+        filename = filename.replace(data_dir, '/HCP_900')
     return filename
 
 
@@ -209,8 +212,8 @@ def _fetch_hcp(data_dir=None,
     if subjects is None:
         subjects = fetch_subject_list(data_dir=data_dir,
                                       n_subjects=n_subjects)
-    elif isinstance(subjects, int):
-        subjects = [subjects]
+    elif isinstance(subjects, (int, str)):
+        subjects = [str(subjects)]
     if not set(fetch_subject_list(data_dir=
                                   data_dir)).issuperset(set(subjects)):
         raise ValueError('Wrong subjects.')
@@ -283,13 +286,14 @@ def _fetch_hcp(data_dir=None,
 
 
 def fetch_files(subject,
+                data_dir=None,
                 data_type='rest',
                 tasks=None,
                 sessions=None,
                 overwrite=False,
                 mock=False,
                 verbose=0):
-    root_path = get_data_dirs()[0]
+    data_dir = get_data_dirs(data_dir)[0]
     aws_key, aws_secret, _, _ = get_credentials()
     s3_keys = _fetch_hcp(subjects=subject,
                          data_type=data_type,
@@ -299,7 +303,7 @@ def fetch_files(subject,
     s3_keys = s3_keys.applymap(_convert_to_s3_target).values.ravel().tolist()
     params = dict(
         bucket='hcp-openaccess',
-        out_path=root_path,
+        out_path=data_dir,
         aws_key=aws_key,
         aws_secret=aws_secret,
         overwrite=overwrite,
@@ -319,7 +323,12 @@ def fetch_files(subject,
             try:
                 _ = nibabel.load(filename).get_shape()
             except:
-                raise ConnectionError('Some files were corrupted. Rerun.')
+                error_fname = list(os.path.splitext(filename))
+                error_fname.insert(1, '-CORRUPTED')
+                error_fname = ''.join(error_fname)
+                os.unlink(filename)
+                with open(error_fname, 'w+') as fid:
+                    fid.write('Corrupted file')
 
 
 def get_data_dirs(data_dir=None):
@@ -365,7 +374,7 @@ def get_data_dirs(data_dir=None):
         if local_data is not None:
             paths.extend(local_data.split(os.pathsep))
 
-        paths.append(os.path.expanduser('~/HCP'))
+        paths.append(os.path.expanduser('~/HCP900').split(os.pathsep))
     return paths
 
 
@@ -387,9 +396,9 @@ def get_credentials(filename=None, data_dir=None):
             filename = join(data_dir, filename)
             if not os.path.exists(filename):
                 if ('HCP_AWS_KEY' in os.environ
-                    and 'HCP_AWS_SECRET_KEY' in os.environ
-                    and 'CDB_USERNAME' in os.environ
-                    and 'CDB_PASSWORD' in os.environ):
+                        and 'HCP_AWS_SECRET_KEY' in os.environ
+                        and 'CDB_USERNAME' in os.environ
+                        and 'CDB_PASSWORD' in os.environ):
                     aws_key = os.environ['HCP_AWS_KEY']
                     aws_secret = os.environ['HCP_AWS_SECRET_KEY']
                     cdb_username = os.environ['CDB_USERNAME']
@@ -406,7 +415,7 @@ def get_credentials(filename=None, data_dir=None):
                          "environment variables.")
 
 
-def fetch_hcp_task(data_dir=None, release='HCP900',
+def fetch_hcp_task(data_dir=None,
                    output='nistats',
                    n_subjects=788,
                    level=2):
@@ -502,17 +511,12 @@ def fetch_hcp_task(data_dir=None, release='HCP900',
 
     res = []
     if output == 'fsl':
-        source_dir = join(data_dir, release)
+        source_dir = data_dir
         if not os.path.exists(source_dir):
-            raise ValueError('Please make sure that a directory %s can '
-                             'be found '
-                             'in the $MODL_DATA directory' % release)
-        if release == 'HCP500':
-            list_dir = sorted(glob.glob(join(source_dir,
-                                             '*/*/MNINonLinear/Results')))
-        else:
-            list_dir = sorted(glob.glob(join(source_dir,
-                                             '*/MNINonLinear/Results')))
+            raise ValueError('Please make sure that a directory %s can'
+                             'be found' % source_dir)
+        list_dir = sorted(glob.glob(join(source_dir,
+                                         '*/MNINonLinear/Results')))
         for dirpath in list_dir[:n_subjects]:
             dirpath_split = dirpath.split(os.sep)
             subject_id = dirpath_split[-3]
@@ -540,7 +544,7 @@ def fetch_hcp_task(data_dir=None, release='HCP900',
                                      'for release %s with output %s'
                                      % (release, output))
     else:
-        source_dir = join(data_dir, 'HCP900', 'glm')
+        source_dir = join(data_dir, 'glm')
         if not os.path.exists(source_dir):
             warnings.warn('No GLM directory was found.')
             return pd.DataFrame()
@@ -578,10 +582,9 @@ def fetch_hcp_task(data_dir=None, release='HCP900',
 
 def fetch_hcp_mask(data_dir=None, url=None, resume=True):
     data_dir = get_data_dirs(data_dir)[0]
-    source_dir = join(data_dir, 'HCP900')
-    if not os.path.exists(source_dir):
+    if not os.path.exists(data_dir):
         os.makedirs(data_dir)
-    data_dir = join(source_dir, 'extra')
+    data_dir = join(data_dir, 'parietal')
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
     if url is None:
@@ -590,52 +593,29 @@ def fetch_hcp_mask(data_dir=None, url=None, resume=True):
     return join(data_dir, 'mask_img.nii.gz')
 
 
-def _get_root_hcp_dir(data_dir=None):
-    data_dir = get_data_dirs(data_dir)[0]
-    root = join(data_dir, 'HCP900')
+def fetch_hcp(data_dir=None, n_subjects=None, subjects=None):
+    root = get_data_dirs(data_dir)[0]
     if not os.path.exists(root):
         os.makedirs(root)
-    return root
-
-
-def fetch_hcp_rest(data_dir=None, n_subjects=788):
-    """Nilearn like fetcher"""
-    root = _get_root_hcp_dir(data_dir)
-    res = []
-    list_dir = sorted(
-        glob.glob(join(root, '*/MNINonLinear/Results')))
-    for dirpath in list_dir[:n_subjects]:
-        dirpath_split = dirpath.split(os.sep)
-        subject_id = dirpath_split[-3]
-        subject_id = int(subject_id)
-
-        for filename in os.listdir(dirpath):
-            name, ext = os.path.splitext(filename)
-            if name in ('rfMRI_REST1_RL', 'rfMRI_REST1_LR', 'rfMRI_REST2_RL',
-                        'rfMRI_REST2_LR'):
-                filename = join(dirpath, filename, filename + '.nii.gz')
-                if os.path.exists(filename):
-                    res.append(
-                        {'filename': filename,
-                         'confounds': None,
-                         'subject': int(subject_id),
-                         'direction': name[-2:],
-                         'series': int(name[-4])
-                         })
-
-    rest = pd.DataFrame(res)
-    rest.set_index(['subject', 'series', 'direction'], inplace=True)
-    rest.sort_index(ascending=True, inplace=True)
-    return rest
-
-
-def fetch_hcp(data_dir=None, n_subjects=None, subjects=None):
     rest = _fetch_hcp(data_dir, data_type='rest',
-                      n_subjects=n_subjects, subjects=subjects)
+                      n_subjects=n_subjects, subjects=subjects,
+                      on_disk=True)
     task = fetch_hcp_task(data_dir, output='nistats', n_subjects=n_subjects)
-    root = join(get_data_dirs(data_dir)[0], 'HCP900')
     mask = fetch_hcp_mask(data_dir)
     behavioral = fetch_behavioral_data(data_dir)
-    behavioral = behavioral.loc[subjects, :]
+    if not task.empty:
+        subjects = task.index.get_level_values('subject').unique().values.tolist()
+        if not rest.empty:
+            rest_subjects = rest.index.get_level_values(
+                'subject').unique().values
+            subjects = np.union1d(subjects, rest_subjects).tolist()
+    elif not rest.empty:
+        subjects = rest.columns.get_level_values('subject').unique().values.tolist()
+    else:
+        subjects = []
+    if len(subjects) > 0:
+        behavioral = behavioral.loc[subjects, :]
+    else:
+        behavioral = pd.DataFrame()
     return Bunch(rest=rest, task=task, behavioral=behavioral, mask=mask,
                  root=root)

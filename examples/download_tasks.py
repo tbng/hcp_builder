@@ -40,7 +40,7 @@ def restart_failed():
     data_dir = get_data_dirs()[0]
     error_dir = join(data_dir, 'failures')
     restarts = []
-    n_jobs = 10
+    n_jobs = 16
     for name in os.listdir(error_dir):
         os.unlink(join(error_dir, name))
         subject, task = name.split('_')

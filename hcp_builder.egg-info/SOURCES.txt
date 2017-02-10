@@ -16,6 +16,8 @@ hcp_builder.egg-info/SOURCES.txt
 hcp_builder.egg-info/dependency_links.txt
 hcp_builder.egg-info/not-zip-safe
 hcp_builder.egg-info/top_level.txt
+hcp_builder/tests/__init__.py
+hcp_builder/tests/test_dataset.py
 hcp_builder/utils/__init__.py
 hcp_builder/utils/fsl.py
 hcp_builder/utils/nifti.py

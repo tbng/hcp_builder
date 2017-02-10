@@ -68,7 +68,6 @@ def download_from_s3(aws_key, aws_secret, bucket, fname,
         if 'eu-central' in host:
             switch_validation = True
             os.environ['S3_USE_SIGV4'] = 'True'
-
     com = boto.connect_s3(aws_key, aws_secret, host=host)
     bucket = com.get_bucket(bucket, validate=False)
     my_key = Key(bucket)

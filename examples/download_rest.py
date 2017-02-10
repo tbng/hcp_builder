@@ -8,7 +8,7 @@ from sklearn.externals.joblib import Parallel, delayed
 from hcp_builder.dataset import get_data_dirs
 
 
-def download_single(subject, verbose):
+def download_single(subject, verbose=0):
     data_dir = get_data_dirs()[0]
     error_dir = join(data_dir, 'failures')
     try:
@@ -22,7 +22,7 @@ def download_single(subject, verbose):
 
 def restart_failed():
     restarts = []
-    n_jobs = 10
+    n_jobs = 16
     names = ['failure_173940_1_RL',
              'failure_285345_2_LR', 'failure_820745_1_RL',
              'failure_176037_2_RL', 'failure_330324_1_RL']
@@ -59,4 +59,4 @@ def download_subset():
         download_single)(subject, verbose=2) for subject in subjects)
 
 if __name__ == '__main__':
-    download_subset()
+    download()
