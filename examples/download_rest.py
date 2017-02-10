@@ -11,13 +11,12 @@ from hcp_builder.dataset import get_data_dirs
 def download_single(subject, verbose=0):
     data_dir = get_data_dirs()[0]
     error_dir = join(data_dir, 'failures')
-    try:
-        fetch_files(subject, data_type='rest', overwrite=True, verbose=verbose)
-    except:
-        print('Failed downloading subject %s resting-state' % subject)
-        traceback.print_exc()
-        with open(join(error_dir, 'rest_%s' % subject), 'w+') as f:
-            f.write('Failed downloading.')
+    fetch_files(subject, data_type='rest', overwrite=True, verbose=verbose)
+    # except:
+    #     print('Failed downloading subject %s resting-state' % subject)
+    #     traceback.print_exc()
+    #     with open(join(error_dir, 'rest_%s' % subject), 'w+') as f:
+    #         f.write('Failed downloading.')
 
 
 def restart_failed():

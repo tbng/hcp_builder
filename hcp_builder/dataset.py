@@ -212,8 +212,8 @@ def _fetch_hcp(data_dir=None,
     if subjects is None:
         subjects = fetch_subject_list(data_dir=data_dir,
                                       n_subjects=n_subjects)
-    elif isinstance(subjects, (int, str)):
-        subjects = [str(subjects)]
+    elif not hasattr(subjects, '__iter__'):
+        subjects = [subjects]
     if not set(fetch_subject_list(data_dir=
                                   data_dir)).issuperset(set(subjects)):
         raise ValueError('Wrong subjects.')
@@ -326,7 +326,10 @@ def fetch_files(subject,
                 error_fname = list(os.path.splitext(filename))
                 error_fname.insert(1, '-CORRUPTED')
                 error_fname = ''.join(error_fname)
-                os.unlink(filename)
+                try:
+                    os.unlink(filename)
+                except:
+                    pass
                 with open(error_fname, 'w+') as fid:
                     fid.write('Corrupted file')
 
