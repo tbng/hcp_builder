@@ -1,13 +1,39 @@
 Metadata-Version: 1.1
 Name: hcp-builder
 Version: 0.1
-Summary: Download HCP rest + task data from the S3 repo, and runs the FSL GLM on time series.
+Summary: Download HCP rest + task data from the S3 repo,and runs the nistats/FSL GLM on time series.
 Home-page: https://gitlab.inria.fr/amensch/hcp_builder
 Author: Arthur Mensch
 Author-email: arthur.mensch@m4x.org
 License: new BSD
 Download-URL: https://gitlab.inria.fr/amensch/hcp_builder
-Description: UNKNOWN
+Description: Download HCP rest + task data from the S3 repo, and runs the nistats/FSL GLM on time series.
+        
+        # Usage
+        
+        ```python
+        python setup.py install
+        cd examples
+        python download_tasks.py
+        python download_rest.py
+        ```
+        
+        # Environment variables
+        ```
+        HCP_data: root of the HCP dataset, where it will be downloaded
+        HCP_AWS_KEY: for S3 bucket access
+        HCP_AWS_SECRET_KEY: for S3 bucket access
+        CDB_USERNAME: for behavioral access
+        CDB_PASSWORD: for behavioral_access
+        ```
+        
+        # TODO:
+        - write tests
+        - automate restart when failures
+        - download non-completed subjects
+        - write functions to copy resources in the HCP_DATA dir
+        - move nilearn like fetchers from modl into the package. For now, you may use development branch of `github.com/arthurmensch/modl`
+        - merge downloaders and fetchers as in nilearn (?)
 Platform: UNKNOWN
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Developers

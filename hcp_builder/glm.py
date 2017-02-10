@@ -13,15 +13,14 @@ import nibabel
 import numpy as np
 import pandas as pd
 import shutil
-from hcp_builder.utils import run_cmd
 from nilearn._utils import check_niimg
 from nilearn.image import new_img_like
 from nistats.first_level_model import FirstLevelModel
 from numpy import VisibleDeprecationWarning
 from sklearn.externals.joblib import Memory
 
-from .utils import configure
-from hcp_builder.dataset import get_data_dirs
+from .utils.fsl import run_cmd, configure
+from .dataset import get_data_dirs
 
 # regex for contrasts
 CON_REAL_REGX = ("set fmri\(con_real(?P<con_num>\d+?)\.(?P<ev_num>\d+?)\)"

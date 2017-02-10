@@ -2,7 +2,7 @@ import os
 import traceback
 from os.path import join
 
-from hcp_builder.dataset import download_single_subject, fetch_subject_list,\
+from hcp_builder.dataset import fetch_files, fetch_subject_list,\
     TASK_LIST
 from sklearn.externals.joblib import Parallel
 from sklearn.externals.joblib import delayed
@@ -15,9 +15,9 @@ def download_and_make_contrasts(subject, task, overwrite=False, verbose=0):
     data_dir = get_data_dirs()[0]
     error_dir = join(data_dir, 'failures')
     try:
-        download_single_subject(subject, data_type='task',
-                                tasks=task, overwrite=overwrite,
-                                verbose=verbose)
+        fetch_files(subject, data_type='task',
+                    tasks=task, overwrite=overwrite,
+                    verbose=verbose)
     except Exception as e:
         print('Failed downloading subject %s for task %s'
               % (subject, task))
