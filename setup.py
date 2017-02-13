@@ -16,7 +16,7 @@ MAINTAINER_EMAIL = 'arthur.mensch@m4x.org'
 URL = 'https://gitlab.inria.fr/amensch/hcp_builder'
 LICENSE = 'new BSD'
 DOWNLOAD_URL = 'https://gitlab.inria.fr/amensch/hcp_builder'
-VERSION = '0.1'
+VERSION = '0.1a'
 
 
 def configuration(parent_package='', top_path=None):
@@ -73,7 +73,7 @@ def setup_package():
               'Operating System :: POSIX',
               'Operating System :: Unix',
               'Operating System :: MacOS',
-              'Programming Language :: Python :: 3.5'
+              'Programming Language :: Python :: 3.6'
           ],
           )
 

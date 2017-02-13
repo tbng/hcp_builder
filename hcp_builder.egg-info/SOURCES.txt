@@ -21,7 +21,6 @@ hcp_builder/tests/test_dataset.py
 hcp_builder/utils/__init__.py
 hcp_builder/utils/fsl.py
 hcp_builder/utils/nifti.py
-hcp_builder/utils/s3.py
 hcp_scripts/compute_stats.sh
 hcp_scripts/configure.sh
 hcp_scripts/prepare.sh
