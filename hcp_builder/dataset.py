@@ -1,17 +1,18 @@
 import glob
 import os
-import shutil
+import traceback
 import warnings
 from os.path import join
 
+import boto
 import nibabel
 import pandas as pd
+import sys
+from boto.s3.key import Key
 from nilearn.datasets.utils import _fetch_file
 from sklearn.datasets.base import Bunch
 
 import numpy as np
-
-from .utils.s3 import download_from_s3_bucket
 
 TASK_LIST = ['EMOTION', 'WM', 'MOTOR', 'RELATIONAL',
              'GAMBLING', 'SOCIAL', 'LANGUAGE']
@@ -87,345 +88,7 @@ EVS = {'EMOTION': {'EMOTION_Stats.csv',
            'all_bk_err.txt'}
        }
 
-contrasts_description = {'2BK': {'Cognitive Task': 'Two-Back Memory',
-                                 'Instruction to participants': 'Indicate whether current stimulus is the same as two items earlier',
-                                 'Stimulus material': 'Task Pictures'},
-                         'BODY-AVG': {'Cognitive Task': 'View Bodies',
-                                      'Instruction to participants': 'Passive watching',
-                                      'Stimulus material': 'Pictures'},
-                         'FACE-AVG': {'Cognitive Task': 'View Faces',
-                                      'Instruction to participants': 'Passive watching',
-                                      'Stimulus material': 'Pictures'},
-                         'FACES': {'Cognitive Task': 'Shapes',
-                                   'Instruction to participants': 'Decide which of two shapes matches another shape geometry-wise',
-                                   'Stimulus material': 'Shape pictures'},
-                         'SHAPES': {'Cognitive Task': 'Faces',
-                                    'Instruction to participants': 'Decide which of two faces matches another face emotion-wise',
-                                    'Stimulus material': 'Face pictures'},
-                         'LF': {'Cognitive Task': 'Food movement',
-                                'Instruction to participants': 'Squeezing of the left or right toe',
-                                'Stimulus material': 'Visual cues'},
-                         'LH': {'Cognitive Task': 'Hand movement',
-                                'Instruction to participants': 'Tapping of the left or right finger',
-                                'Stimulus material': 'Visual cues'},
-                         'MATCH': {'Cognitive Task': 'Matching',
-                                   'Instruction to participants': 'Decide whether two objects match in shape or texture',
-                                   'Stimulus material': 'Pictures'},
-                         'MATH': {'Cognitive Task': 'Mathematics',
-                                  'Instruction to participants': 'Complete addition and subtraction problems',
-                                  'Stimulus material': 'Spoken numbers'},
-                         'PLACE-AVG': {'Cognitive Task': 'View Places',
-                                       'Instruction to participants': 'Passive watching',
-                                       'Stimulus material': 'Pictures'},
-                         'PUNISH': {'Cognitive Task': 'Reward',
-                                    'Instruction to participants': 'Guess the number of mystery card for gain/loss of money',
-                                    'Stimulus material': 'Card game'},
-                         'RANDOM': {'Cognitive Task': 'Random',
-                                    'Instruction to participants': 'Decide whether the objects act randomly or intentionally',
-                                    'Stimulus material': 'Videos with objects'},
-                         'REL': {'Cognitive Task': 'Relations',
-                                 'Instruction to participants': 'Decide whether object pairs differ both along either shapeor texture',
-                                 'Stimulus material': 'Pictures'},
-                         'REWARD': {'Cognitive Task': 'Punish',
-                                    'Instruction to participants': 'Guess the number of mystery card for gain/loss of money',
-                                    'Stimulus material': 'Card game'},
-                         'STORY': {'Cognitive Task': 'Language',
-                                   'Instruction to participants': 'Choose answer about the topic of the story',
-                                   'Stimulus material': 'Auditory stories'},
-                         'T': {'Cognitive Task': 'Tongue movement',
-                               'Instruction to participants': 'Move tongue',
-                               'Stimulus material': 'Visual cues'},
-                         'TOM': {'Cognitive Task': 'Theory of mind',
-                                 'Instruction to participants': 'Decide whether the objects act randomly or intentionally',
-                                 'Stimulus material': 'Videos with objects'},
-                         'TOOL-AVG': {'Cognitive Task': 'View Tools',
-                                      'Instruction to participants': 'Passive watching',
-                                      'Stimulus material': 'Pictures'}}
-
-
-def fetch_behavioral_data(data_dir=None,
-                          n_subjects=None,
-                          restricted=False,
-                          overwrite=False, ):
-    _, _, username, password = get_credentials(data_dir=data_dir)
-    data_dir = get_data_dirs(data_dir)[0]
-    behavioral_dir = join(data_dir, 'behavioral')
-    if not os.path.exists(behavioral_dir):
-        os.makedirs(behavioral_dir)
-    csv_unrestricted = join(behavioral_dir, 'hcp_unrestricted_data.csv')
-    if not os.path.exists(csv_unrestricted) or overwrite:
-        result = _fetch_file(data_dir=data_dir,
-                             url='https://db.humanconnectome.org/REST/'
-                                 'search/dict/Subject%20Information/results?'
-                                 'format=csv&removeDelimitersFromFieldValues'
-                                 '=true'
-                                 '&restricted=0&project=HCP_900',
-                             username=username, password=password)
-        os.rename(result, csv_unrestricted)
-    csv_restricted = join(behavioral_dir, 'hcp_restricted_data.csv')
-    df_unrestricted = pd.read_csv(csv_unrestricted, nrows=n_subjects)
-    df_unrestricted.set_index('Subject', inplace=True)
-    if restricted and not os.path.exists(csv_restricted):
-        warnings.warn("Cannot automatically retrieve restricted data. "
-                      "Please create the file '%s' manually" %
-                      csv_restricted)
-        restricted = False
-    if not restricted:
-        df = df_unrestricted
-    else:
-        df_restricted = pd.read_csv(csv_restricted, nrows=n_subjects)
-        df_restricted.set_index('Subject', inplace=True)
-        df = df_unrestricted.join(df_restricted, how='outer')
-    df.sort_index(ascending=True, inplace=True)
-    df.index.names = ['subject']
-    return df
-
-
-def fetch_subject_list(data_dir=None, n_subjects=None,
-                       overwrite=False):
-    df = fetch_behavioral_data(data_dir=data_dir, n_subjects=n_subjects,
-                               overwrite=overwrite)
-    return df.index.get_level_values('subject').unique().tolist()
-
-
-def _convert_to_s3_target(filename, data_dir=None):
-    data_dir = get_data_dirs(data_dir)[0]
-    if data_dir in filename:
-        filename = filename.replace(data_dir, '/HCP_900')
-    return filename
-
-
-def _fetch_hcp(data_dir=None,
-               subjects=None,
-               n_subjects=None,
-               data_type='rest',
-               sessions=None,
-               on_disk=True,
-               tasks=None):
-    """Utility to download from s3"""
-    data_dir = get_data_dirs(data_dir)[0]
-
-    if data_type not in ['task', 'rest']:
-        raise ValueError("Wrong data type. Expected 'rest' or 'task', got"
-                         "%s" % data_type)
-
-    if subjects is None:
-        subjects = fetch_subject_list(data_dir=data_dir,
-                                      n_subjects=n_subjects)
-    elif not hasattr(subjects, '__iter__'):
-        subjects = [subjects]
-    if not set(fetch_subject_list(data_dir=
-                                  data_dir)).issuperset(set(subjects)):
-        raise ValueError('Wrong subjects.')
-
-    res = []
-    for subject in subjects:
-        subject = str(subject)
-        subject_dir = join(data_dir, subject, 'MNINonLinear', 'Results')
-        if data_type is 'task':
-            if tasks is None:
-                sessions = TASK_LIST
-            elif isinstance(tasks, str):
-                sessions = [tasks]
-            if not set(TASK_LIST).issuperset(set(sessions)):
-                raise ValueError('Wrong tasks.')
-        else:
-            if sessions is None:
-                sessions = [1, 2]
-            elif isinstance(sessions, int):
-                sessions = [sessions]
-            if not set([1, 2]).issuperset(set(sessions)):
-                raise ValueError('Wrong rest sessions.')
-        for session in sessions:
-            for direction in ['LR', 'RL']:
-                if data_type is 'task':
-                    task = session
-                    root_filename = 'tfMRI_%s_%s' % (task, direction)
-                else:
-                    root_filename = 'rfMRI_REST%i_%s' % (session,
-                                                         direction)
-                root_dir = join(subject_dir, root_filename)
-                filename = join(root_dir, root_filename + '.nii.gz')
-                mask = join(root_dir, root_filename + '_SBRef.nii.gz')
-                confounds = ['Movement_AbsoluteRMS_mean.txt',
-                             'Movement_AbsoluteRMS.txt',
-                             'Movement_Regressors_dt.txt',
-                             'Movement_Regressors.txt',
-                             'Movement_RelativeRMS_mean.txt',
-                             'Movement_RelativeRMS.txt']
-                res_dict = {'subject': subject, 'direction': direction,
-                            'filename': filename, 'mask': mask}
-                for i, confound in enumerate(confounds):
-                    res_dict['confound_%i' % i] = join(root_dir, confound)
-                if data_type is 'rest':
-                    res_dict['session'] = session
-                else:
-                    res_dict['task'] = tasks
-                    feat_file = join(root_dir,
-                                     "tfMRI_%s_%s_hp200_s4_level1.fsf"
-                                     % (task, direction))
-                    res_dict['feat_file'] = feat_file
-                    for i, ev in enumerate(EVS[task]):
-                        res_dict['ev_%i' % i] = join(root_dir, 'EVs', ev)
-                requested_on_disk = all(os.path.exists(file) for file
-                                        in res_dict.values())
-                if not on_disk or requested_on_disk:
-                    res.append(res_dict)
-
-    if res:
-        res = pd.DataFrame(res)
-        if data_type is 'rest':
-            res.set_index(['subject', 'session', 'direction'],
-                          inplace=True)
-        else:
-            res.set_index(['subject', 'task', 'direction'],
-                          inplace=True)
-    else:
-        res = pd.DataFrame([])
-    return res
-
-
-def fetch_files(subject,
-                data_dir=None,
-                data_type='rest',
-                tasks=None,
-                sessions=None,
-                overwrite=False,
-                mock=False,
-                verbose=0):
-    data_dir = get_data_dirs(data_dir)[0]
-    aws_key, aws_secret, _, _ = get_credentials()
-    s3_keys = _fetch_hcp(subjects=subject,
-                         data_type=data_type,
-                         tasks=tasks,
-                         on_disk=False,
-                         sessions=sessions)
-    s3_keys = s3_keys.applymap(_convert_to_s3_target).values.ravel().tolist()
-    params = dict(
-        bucket='hcp-openaccess',
-        out_path=data_dir,
-        aws_key=aws_key,
-        aws_secret=aws_secret,
-        overwrite=overwrite,
-        prefix='HCP_900')
-    if verbose > 0:
-        if data_type == 'task':
-            print('Downloading files for subject %s,'
-                  ' tasks %s' % (subject, tasks))
-        else:
-            print('Downloading files for subject %s,'
-                  ' session %s' % (subject, sessions))
-    filenames = download_from_s3_bucket(key_list=s3_keys, mock=mock,
-                                        verbose=verbose - 1, **params)
-    for filename in filenames:
-        name, ext = os.path.splitext(filename)
-        if ext == '.gz':
-            try:
-                _ = nibabel.load(filename).get_shape()
-            except:
-                error_fname = list(os.path.splitext(filename))
-                error_fname.insert(1, '-CORRUPTED')
-                error_fname = ''.join(error_fname)
-                try:
-                    os.unlink(filename)
-                except:
-                    pass
-                with open(error_fname, 'w+') as fid:
-                    fid.write('Corrupted file')
-
-
-def get_data_dirs(data_dir=None):
-    """ Returns the directories in which modl looks for data.
-
-    This is typically useful for the end-user to check where the data is
-    downloaded and stored.
-
-    Parameters
-    ----------
-    data_dir: string, optional
-        Path of the data directory. Used to force data storage in a specified
-        location. Default: None
-
-    Returns
-    -------
-    paths: list of strings
-        Paths of the dataset directories.
-
-    Notes
-    -----
-    This function retrieves the datasets directories using the following
-    priority :
-    1. the keyword argument data_dir
-    2. the global environment variable MODL_SHARED_DATA
-    3. the user environment variable MODL_DATA
-    4. modl_data in the user home folder
-    """
-
-    paths = []
-
-    # Check data_dir which force storage in a specific location
-    if data_dir is not None:
-        paths.extend(data_dir.split(os.pathsep))
-
-    # If data_dir has not been specified, then we crawl default locations
-    if data_dir is None:
-        global_data = os.getenv('HCP_SHARED_DATA')
-        if global_data is not None:
-            paths.extend(global_data.split(os.pathsep))
-
-        local_data = os.getenv('HCP_DATA')
-        if local_data is not None:
-            paths.extend(local_data.split(os.pathsep))
-
-        paths.append(os.path.expanduser('~/HCP900').split(os.pathsep))
-    return paths
-
-
-def get_credentials(filename=None, data_dir=None):
-    """Retrieve credentials for COnnectomeDB and S3 bucket access.
-
-    First try to look whether
-
-    Parameters
-    ----------
-    filename: str,
-        Filename of
-    """
-    try:
-        if filename is None:
-            filename = 'credentials.txt'
-        if not os.path.exists(filename):
-            data_dir = get_data_dirs(data_dir)[0]
-            filename = join(data_dir, filename)
-            if not os.path.exists(filename):
-                if ('HCP_AWS_KEY' in os.environ
-                        and 'HCP_AWS_SECRET_KEY' in os.environ
-                        and 'CDB_USERNAME' in os.environ
-                        and 'CDB_PASSWORD' in os.environ):
-                    aws_key = os.environ['HCP_AWS_KEY']
-                    aws_secret = os.environ['HCP_AWS_SECRET_KEY']
-                    cdb_username = os.environ['CDB_USERNAME']
-                    cdb_password = os.environ['CDB_PASSWORD']
-                    return aws_key, aws_secret, cdb_username, cdb_password
-                else:
-                    raise KeyError('Could not find environment variables.')
-        file = open(filename, 'r')
-        return file.readline()[:-1].split(',')
-    except (KeyError, FileNotFoundError):
-        raise ValueError("Cannot find credentials. Provide them"
-                         "in a file credentials.txt where the script is "
-                         "executed, or in the HCP directory, or in"
-                         "environment variables.")
-
-
-def fetch_hcp_task(data_dir=None,
-                   output='nistats',
-                   n_subjects=788,
-                   level=2):
-    """Nilearn like fetcher"""
-    data_dir = get_data_dirs(data_dir)[0]
-
-    tasks = [["WM", 1, "2BK_BODY"],
+CONTRASTS = [["WM", 1, "2BK_BODY"],
              ["WM", 2, "2BK_FACE"],
              ["WM", 3, "2BK_PLACE"],
              ["WM", 4, "2BK_TOOL"],
@@ -512,75 +175,459 @@ def fetch_hcp_task(data_dir=None,
              ["EMOTION", 5, "neg_SHAPES"],
              ["EMOTION", 6, "SHAPES-FACES"]]
 
+INTERESTING_CONTRASTS = {'2BK': {'Cognitive Task': 'Two-Back Memory',
+                                 'Instruction to participants': 'Indicate whether current stimulus is the same as two items earlier',
+                                 'Stimulus material': 'Task Pictures'},
+                         'BODY-AVG': {'Cognitive Task': 'View Bodies',
+                                      'Instruction to participants': 'Passive watching',
+                                      'Stimulus material': 'Pictures'},
+                         'FACE-AVG': {'Cognitive Task': 'View Faces',
+                                      'Instruction to participants': 'Passive watching',
+                                      'Stimulus material': 'Pictures'},
+                         'FACES': {'Cognitive Task': 'Shapes',
+                                   'Instruction to participants': 'Decide which of two shapes matches another shape geometry-wise',
+                                   'Stimulus material': 'Shape pictures'},
+                         'SHAPES': {'Cognitive Task': 'Faces',
+                                    'Instruction to participants': 'Decide which of two faces matches another face emotion-wise',
+                                    'Stimulus material': 'Face pictures'},
+                         'LF': {'Cognitive Task': 'Food movement',
+                                'Instruction to participants': 'Squeezing of the left or right toe',
+                                'Stimulus material': 'Visual cues'},
+                         'LH': {'Cognitive Task': 'Hand movement',
+                                'Instruction to participants': 'Tapping of the left or right finger',
+                                'Stimulus material': 'Visual cues'},
+                         'MATCH': {'Cognitive Task': 'Matching',
+                                   'Instruction to participants': 'Decide whether two objects match in shape or texture',
+                                   'Stimulus material': 'Pictures'},
+                         'MATH': {'Cognitive Task': 'Mathematics',
+                                  'Instruction to participants': 'Complete addition and subtraction problems',
+                                  'Stimulus material': 'Spoken numbers'},
+                         'PLACE-AVG': {'Cognitive Task': 'View Places',
+                                       'Instruction to participants': 'Passive watching',
+                                       'Stimulus material': 'Pictures'},
+                         'PUNISH': {'Cognitive Task': 'Reward',
+                                    'Instruction to participants': 'Guess the number of mystery card for gain/loss of money',
+                                    'Stimulus material': 'Card game'},
+                         'RANDOM': {'Cognitive Task': 'Random',
+                                    'Instruction to participants': 'Decide whether the objects act randomly or intentionally',
+                                    'Stimulus material': 'Videos with objects'},
+                         'REL': {'Cognitive Task': 'Relations',
+                                 'Instruction to participants': 'Decide whether object pairs differ both along either shapeor texture',
+                                 'Stimulus material': 'Pictures'},
+                         'REWARD': {'Cognitive Task': 'Punish',
+                                    'Instruction to participants': 'Guess the number of mystery card for gain/loss of money',
+                                    'Stimulus material': 'Card game'},
+                         'STORY': {'Cognitive Task': 'Language',
+                                   'Instruction to participants': 'Choose answer about the topic of the story',
+                                   'Stimulus material': 'Auditory stories'},
+                         'T': {'Cognitive Task': 'Tongue movement',
+                               'Instruction to participants': 'Move tongue',
+                               'Stimulus material': 'Visual cues'},
+                         'TOM': {'Cognitive Task': 'Theory of mind',
+                                 'Instruction to participants': 'Decide whether the objects act randomly or intentionally',
+                                 'Stimulus material': 'Videos with objects'},
+                         'TOOL-AVG': {'Cognitive Task': 'View Tools',
+                                      'Instruction to participants': 'Passive watching',
+                                      'Stimulus material': 'Pictures'}}
+
+
+def _init_s3_connection(aws_key, aws_secret,
+                        bucket_name,
+                        host='s3.amazonaws.com'):
+    com = boto.connect_s3(aws_key, aws_secret, host=host)
+    bucket = com.get_bucket(bucket_name, validate=False)
+    return bucket
+
+
+def _convert_to_s3_target(filename, data_dir=None):
+    data_dir = get_data_dirs(data_dir)[0]
+    if data_dir in filename:
+        filename = filename.replace(data_dir, '/HCP_900')
+    return filename
+
+
+def fetch_hcp_timeseries(data_dir=None,
+                         subjects=None,
+                         n_subjects=None,
+                         data_type='rest',
+                         sessions=None,
+                         on_disk=True,
+                         tasks=None):
+    """Utility to download from s3"""
+    data_dir = get_data_dirs(data_dir)[0]
+
+    if data_type not in ['task', 'rest']:
+        raise ValueError("Wrong data type. Expected 'rest' or 'task', got"
+                         "%s" % data_type)
+
+    if subjects is None:
+        subjects = fetch_subject_list(data_dir=data_dir,
+                                      n_subjects=n_subjects)
+    elif not hasattr(subjects, '__iter__'):
+        subjects = [subjects]
+    if not set(fetch_subject_list(data_dir=
+                                  data_dir)).issuperset(set(subjects)):
+        raise ValueError('Wrong subjects.')
+
+    res = []
+    for subject in subjects:
+        subject_dir = join(data_dir, str(subject), 'MNINonLinear', 'Results')
+        if data_type is 'task':
+            if tasks is None:
+                sessions = TASK_LIST
+            elif isinstance(tasks, str):
+                sessions = [tasks]
+            if not set(TASK_LIST).issuperset(set(sessions)):
+                raise ValueError('Wrong tasks.')
+        else:
+            if sessions is None:
+                sessions = [1, 2]
+            elif isinstance(sessions, int):
+                sessions = [sessions]
+            if not set([1, 2]).issuperset(set(sessions)):
+                raise ValueError('Wrong rest sessions.')
+        for session in sessions:
+            for direction in ['LR', 'RL']:
+                if data_type == 'task':
+                    task = session
+                    root_filename = 'tfMRI_%s_%s' % (task, direction)
+                else:
+                    root_filename = 'rfMRI_REST%i_%s' % (session,
+                                                         direction)
+                root_dir = join(subject_dir, root_filename)
+                filename = join(root_dir, root_filename + '.nii.gz')
+                mask = join(root_dir, root_filename + '_SBRef.nii.gz')
+                confounds = ['Movement_AbsoluteRMS_mean.txt',
+                             'Movement_AbsoluteRMS.txt',
+                             'Movement_Regressors_dt.txt',
+                             'Movement_Regressors.txt',
+                             'Movement_RelativeRMS_mean.txt',
+                             'Movement_RelativeRMS.txt']
+                res_dict = {'filename': filename, 'mask': mask}
+                for i, confound in enumerate(confounds):
+                    res_dict['confound_%i' % i] = join(root_dir, confound)
+                if data_type is 'task':
+                    feat_file = join(root_dir,
+                                     "tfMRI_%s_%s_hp200_s4_level1.fsf"
+                                     % (task, direction))
+                    res_dict['feat_file'] = feat_file
+                    for i, ev in enumerate(EVS[task]):
+                        res_dict['ev_%i' % i] = join(root_dir, 'EVs', ev)
+                requested_on_disk = all(os.path.exists(file) for file
+                                        in res_dict.values())
+                res_dict['subject'] = subject
+                res_dict['direction'] = direction
+                if data_type == 'rest':
+                    res_dict['session'] = session
+                else:
+                    res_dict['task'] = task
+                if not on_disk or requested_on_disk:
+                    res.append(res_dict)
+
+    res = pd.DataFrame(res)
+    if not res.empty:
+        if data_type == 'rest':
+            res.set_index(['subject', 'session', 'direction'],
+                          inplace=True)
+        else:
+            res.set_index(['subject', 'task', 'direction'],
+                          inplace=True)
+    return res
+
+
+def fetch_hcp_contrasts(data_dir=None,
+                        output='nistats',
+                        n_subjects=None,
+                        subjects=None,
+                        on_disk=True,
+                        level=2):
+    """Nilearn like fetcher"""
+    data_dir = get_data_dirs(data_dir)[0]
+
+    if subjects is None:
+        subjects = fetch_subject_list(data_dir=data_dir,
+                                      n_subjects=n_subjects)
+    elif not hasattr(subjects, '__iter__'):
+        subjects = [subjects]
+    if not set(fetch_subject_list(data_dir=
+                                  data_dir)).issuperset(set(subjects)):
+        raise ValueError('Wrong subjects.')
+
     res = []
     if output == 'fsl':
-        source_dir = data_dir
-        if not os.path.exists(source_dir):
-            raise ValueError('Please make sure that a directory %s can'
-                             'be found' % source_dir)
-        list_dir = sorted(glob.glob(join(source_dir,
-                                         '*/MNINonLinear/Results')))
-        for dirpath in list_dir[:n_subjects]:
-            dirpath_split = dirpath.split(os.sep)
-            subject_id = dirpath_split[-3]
-            subject_id = int(subject_id)
-
-            for i, task in enumerate(tasks):
-                task_name = task[0]
-                contrast_idx = task[1]
-                this_contrast = task[2]
+        for subject in subjects:
+            subject_dir = join(data_dir, str(subject), 'MNINonLinear',
+                               'Results')
+            for i, contrast in enumerate(CONTRASTS):
+                task_name = contrast[0]
+                contrast_idx = contrast[1]
+                contrast_name = contrast[2]
                 if level == 2:
-                    filename = join(dirpath, "tfMRI_%s/tfMRI_%s_hp200_s4_"
-                                             "level2vol.feat/cope%i.feat/"
-                                             "stats/zstat1.nii.gz" % (
-                                        task_name, task_name,
-                                        contrast_idx))
-                    if os.path.exists(filename):
-                        res.append({'filename': filename,
-                                    'subject': subject_id,
+                    z_map = join(subject_dir, "tfMRI_%s/tfMRI_%s_hp200_s4_"
+                                              "level2vol.feat/cope%i.feat/"
+                                              "stats/zstat1.nii.gz"
+                                 % (task_name, task_name, contrast_idx))
+                    if os.path.exists(z_map) or not on_disk:
+                        res.append({'z_map': z_map,
+                                    'subject': subject,
                                     'task': task_name,
-                                    'contrast': this_contrast,
+                                    'contrast': contrast_name,
                                     'direction': 'level2'
                                     })
+                    else:
+                        break
                 else:
-                    raise ValueError('Can only output level 2 images'
-                                     'for release %s with output %s'
-                                     % (release, output))
+                    raise ValueError("Can only output level 2 images"
+                                     "with output='fsl'")
     else:
         source_dir = join(data_dir, 'glm')
-        if not os.path.exists(source_dir):
-            warnings.warn('No GLM directory was found.')
-            return pd.DataFrame()
         if level == 2:
             directions = ['level2']
         elif level == 1:
             directions = ['LR', 'RL']
         else:
             raise ValueError('Level should be 1 or 2, got %s' % level)
-        subject_ids = os.listdir(source_dir)
-        for subject_id in subject_ids[:n_subjects]:
-            tasks = os.listdir(join(source_dir, subject_id))
-            for task in tasks:
+        for subject in subjects:
+            subject_dir = join(source_dir, str(subject))
+            for contrast in CONTRASTS:
+                task_name = contrast[0]
+                contrast_name = contrast[2]
                 for direction in directions:
-                    z_dir = join(source_dir, subject_id, task, direction,
+                    z_dir = join(subject_dir, task_name, direction,
                                  'z_maps')
-                    if os.path.exists(z_dir):
-                        z_maps = os.listdir(z_dir)
-                        for z_map in z_maps:
-                            filename = join(z_dir, z_map)
-                            this_contrast = z_map[2:-7]
-                            if os.path.exists(filename):
-                                res.append({'filename': filename,
-                                            'subject': int(subject_id),
-                                            'task': task,
-                                            'contrast': this_contrast,
-                                            'direction': direction
-                                            })
-    z_maps = pd.DataFrame(res)
-    z_maps.set_index(['subject', 'task', 'contrast', 'direction'],
-                     inplace=True)
-    z_maps.sort_index(ascending=True, inplace=True)
-    return z_maps
+                    effect_dir = join(subject_dir, task_name, direction,
+                                      'effects_maps')
+                    z_map = join(z_dir, 'z_' + contrast_name +
+                                 '.nii.gz')
+                    effect_map = join(effect_dir, 'effects_' + contrast_name +
+                                      '.nii.gz')
+                    if ((os.path.exists(z_map) and os.path.exists(effect_map))
+                            or not on_disk):
+                        res.append({'z_map': z_map,
+                                    'effect_map': effect_map,
+                                    'subject': subject,
+                                    'task': task_name,
+                                    'contrast': contrast_name,
+                                    'direction': direction
+                                    })
+    res = pd.DataFrame(res)
+    if not res.empty:
+        res.set_index(['subject', 'task', 'contrast', 'direction'],
+                      inplace=True)
+        res.sort_index(ascending=True, inplace=True)
+    return res
+
+
+def fetch_behavioral_data(data_dir=None,
+                          restricted=False,
+                          overwrite=False):
+    _, _, username, password = get_credentials(data_dir=data_dir)
+    data_dir = get_data_dirs(data_dir)[0]
+    behavioral_dir = join(data_dir, 'behavioral')
+    if not os.path.exists(behavioral_dir):
+        os.makedirs(behavioral_dir)
+    csv_unrestricted = join(behavioral_dir, 'hcp_unrestricted_data.csv')
+    if not os.path.exists(csv_unrestricted) or overwrite:
+        result = _fetch_file(data_dir=data_dir,
+                             url='https://db.humanconnectome.org/REST/'
+                                 'search/dict/Subject%20Information/results?'
+                                 'format=csv&removeDelimitersFromFieldValues'
+                                 '=true'
+                                 '&restricted=0&project=HCP_900',
+                             username=username, password=password)
+        os.rename(result, csv_unrestricted)
+    csv_restricted = join(behavioral_dir, 'hcp_restricted_data.csv')
+    df_unrestricted = pd.read_csv(csv_unrestricted)
+    df_unrestricted.set_index('Subject', inplace=True)
+    if restricted and not os.path.exists(csv_restricted):
+        warnings.warn("Cannot automatically retrieve restricted data. "
+                      "Please create the file '%s' manually" %
+                      csv_restricted)
+        restricted = False
+    if not restricted:
+        df = df_unrestricted
+    else:
+        df_restricted = pd.read_csv(csv_restricted)
+        df_restricted.set_index('Subject', inplace=True)
+        df = df_unrestricted.join(df_restricted, how='outer')
+    df.sort_index(ascending=True, inplace=True)
+    df.index.names = ['subject']
+    return df
+
+
+def fetch_subject_list(data_dir=None, n_subjects=None, only_terminated=True):
+    df = fetch_behavioral_data(data_dir=data_dir)
+    if only_terminated:
+        indices = np.logical_and(df['3T_RS-fMRI_PctCompl'] == 100,
+                                 df['3T_tMRI_PctCompl'] == 100)
+        df = df.loc[indices]
+    return df.iloc[:n_subjects].index. \
+        get_level_values('subject').unique().tolist()
+
+
+def download_experiment(subject,
+                        data_dir=None,
+                        data_type='rest',
+                        tasks=None,
+                        sessions=None,
+                        overwrite=False,
+                        mock=False,
+                        verbose=0):
+    aws_key, aws_secret, _, _ = get_credentials()
+    bucket = _init_s3_connection(aws_key, aws_secret, 'hcp-openaccess')
+    targets = fetch_hcp_timeseries(data_dir=data_dir,
+                                   subjects=subject,
+                                   data_type=data_type,
+                                   tasks=tasks,
+                                   on_disk=False,
+                                   sessions=sessions).values.ravel().tolist()
+    keys = list(map(_convert_to_s3_target, targets))
+
+    try:
+        download_from_s3(bucket, keys[0], targets[0], mock=True,
+                         verbose=0)
+    except FileNotFoundError:
+        return
+
+    if verbose > 0:
+        if data_type == 'task':
+            print('Downloading files for subject %s,'
+                  ' tasks %s' % (subject, tasks))
+        else:
+            print('Downloading files for subject %s,'
+                  ' session %s' % (subject, sessions))
+    for key, target in zip(keys, targets):
+        dirname = os.path.dirname(target)
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+        try:
+            download_from_s3(bucket, key, target, mock=mock,
+                             overwrite=overwrite, verbose=verbose - 1)
+        except FileNotFoundError:
+            pass
+        except ConnectionError:
+            os.unlink(target)
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            msg = '\n'.join(traceback.format_exception(
+                exc_type, exc_value, exc_traceback))
+            target += '-error'
+            with open(target, 'w+') as f:
+                f.write(msg)
+
+
+def download_from_s3(bucket, key, target, mock=False,
+                     overwrite=False, verbose=0):
+    """Download file from bucket
+    """
+    my_key = Key(bucket)
+    my_key.key = key
+    if my_key.exists():
+        s3fid = bucket.get_key(key)
+        if not mock:
+            if not os.path.exists(target) or overwrite:
+                if verbose:
+                    print('Downloading %s from %s' % (target, key))
+                s3fid.get_contents_to_filename(target)
+                name, ext = os.path.splitext(target)
+                if ext == '.gz':
+                    try:
+                        _ = nibabel.load(target).get_shape()
+                        if verbose:
+                            print('Nifti consistency checked.')
+                    except:
+                        raise ConnectionError('Corrupted download')
+            else:
+                if verbose:
+                    print('Skipping %s as it already exists' % target)
+        else:
+            if verbose:
+                print('Mock download %s from %s' % (target, key))
+    else:
+        raise FileNotFoundError('File does not exist on S3')
+
+
+def get_data_dirs(data_dir=None):
+    """ Returns the directories in which modl looks for data.
+
+    This is typically useful for the end-user to check where the data is
+    downloaded and stored.
+
+    Parameters
+    ----------
+    data_dir: string, optional
+        Path of the data directory. Used to force data storage in a specified
+        location. Default: None
+
+    Returns
+    -------
+    paths: list of strings
+        Paths of the dataset directories.
+
+    Notes
+    -----
+    This function retrieves the datasets directories using the following
+    priority :
+    1. the keyword argument data_dir
+    2. the global environment variable MODL_SHARED_DATA
+    3. the user environment variable MODL_DATA
+    4. modl_data in the user home folder
+    """
+
+    paths = []
+
+    # Check data_dir which force storage in a specific location
+    if data_dir is not None:
+        paths.extend(data_dir.split(os.pathsep))
+
+    # If data_dir has not been specified, then we crawl default locations
+    if data_dir is None:
+        global_data = os.getenv('HCP_SHARED_DATA')
+        if global_data is not None:
+            paths.extend(global_data.split(os.pathsep))
+
+        local_data = os.getenv('HCP_DATA')
+        if local_data is not None:
+            paths.extend(local_data.split(os.pathsep))
+
+        paths.append(os.path.expanduser('~/HCP900').split(os.pathsep))
+    return paths
+
+
+def get_credentials(filename=None, data_dir=None):
+    """Retrieve credentials for COnnectomeDB and S3 bucket access.
+
+    First try to look whether
+
+    Parameters
+    ----------
+    filename: str,
+        Filename of
+    """
+    try:
+        if filename is None:
+            filename = 'credentials.txt'
+        if not os.path.exists(filename):
+            data_dir = get_data_dirs(data_dir)[0]
+            filename = join(data_dir, filename)
+            if not os.path.exists(filename):
+                if ('HCP_AWS_KEY' in os.environ
+                    and 'HCP_AWS_SECRET_KEY' in os.environ
+                    and 'CDB_USERNAME' in os.environ
+                    and 'CDB_PASSWORD' in os.environ):
+                    aws_key = os.environ['HCP_AWS_KEY']
+                    aws_secret = os.environ['HCP_AWS_SECRET_KEY']
+                    cdb_username = os.environ['CDB_USERNAME']
+                    cdb_password = os.environ['CDB_PASSWORD']
+                    return aws_key, aws_secret, cdb_username, cdb_password
+                else:
+                    raise KeyError('Could not find environment variables.')
+        file = open(filename, 'r')
+        return file.readline()[:-1].split(',')
+    except (KeyError, FileNotFoundError):
+        raise ValueError("Cannot find credentials. Provide them"
+                         "in a file credentials.txt where the script is "
+                         "executed, or in the HCP directory, or in"
+                         "environment variables.")
 
 
 def fetch_hcp_mask(data_dir=None, url=None, resume=True):
@@ -596,29 +643,39 @@ def fetch_hcp_mask(data_dir=None, url=None, resume=True):
     return join(data_dir, 'mask_img.nii.gz')
 
 
-def fetch_hcp(data_dir=None, n_subjects=None, subjects=None):
+def fetch_hcp(data_dir=None, n_subjects=None, subjects=None,
+              on_disk=True):
     root = get_data_dirs(data_dir)[0]
     if not os.path.exists(root):
         os.makedirs(root)
-    rest = _fetch_hcp(data_dir, data_type='rest',
-                      n_subjects=n_subjects, subjects=subjects,
-                      on_disk=True)
-    task = fetch_hcp_task(data_dir, output='nistats', n_subjects=n_subjects)
-    mask = fetch_hcp_mask(data_dir)
+    rest = fetch_hcp_timeseries(data_dir, data_type='rest',
+                                n_subjects=n_subjects, subjects=subjects,
+                                on_disk=on_disk)
+    task = fetch_hcp_timeseries(data_dir, data_type='task',
+                                n_subjects=n_subjects, subjects=subjects,
+                                on_disk=on_disk)
+    contrasts = fetch_hcp_contrasts(data_dir,
+                                    output='nistats',
+                                    n_subjects=n_subjects,
+                                    subjects=subjects,
+                                    on_disk=on_disk)
     behavioral = fetch_behavioral_data(data_dir)
-    if not task.empty:
-        subjects = task.index.get_level_values('subject').unique().values.tolist()
-        if not rest.empty:
-            rest_subjects = rest.index.get_level_values(
-                'subject').unique().values
-            subjects = np.union1d(subjects, rest_subjects).tolist()
-    elif not rest.empty:
-        subjects = rest.columns.get_level_values('subject').unique().values.tolist()
+    mask = fetch_hcp_mask(data_dir)
+    indices = []
+    for df in rest, task, contrasts:
+        if not df.empty:
+            indices.append(df.index.get_level_values('subject').
+                           unique().values)
+    if indices:
+        index = indices[0]
+        for this_index in indices[1:]:
+            index = np.union1d(index, this_index)
+        behavioral = behavioral.loc[index]
     else:
-        subjects = []
-    if len(subjects) > 0:
-        behavioral = behavioral.loc[subjects, :]
-    else:
-        behavioral = pd.DataFrame()
-    return Bunch(rest=rest, task=task, behavioral=behavioral, mask=mask,
+        behavioral = pd.DataFrame([])
+    return Bunch(rest=rest,
+                 contrasts=contrasts,
+                 task=task,
+                 behavioral=behavioral,
+                 mask=mask,
                  root=root)

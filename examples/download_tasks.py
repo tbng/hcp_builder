@@ -2,7 +2,7 @@ import os
 import traceback
 from os.path import join
 
-from hcp_builder.dataset import fetch_files, fetch_subject_list,\
+from hcp_builder.dataset import download_experiment, fetch_subject_list,\
     TASK_LIST
 from sklearn.externals.joblib import Parallel
 from sklearn.externals.joblib import delayed
@@ -15,9 +15,9 @@ def download_and_make_contrasts(subject, task, overwrite=False, verbose=0):
     data_dir = get_data_dirs()[0]
     error_dir = join(data_dir, 'failures')
     try:
-        fetch_files(subject, data_type='task',
-                    tasks=task, overwrite=overwrite,
-                    verbose=verbose)
+        download_experiment(subject, data_type='task',
+                            tasks=task, overwrite=overwrite,
+                            verbose=verbose)
     except Exception as e:
         print('Failed downloading subject %s for task %s'
               % (subject, task))
@@ -25,6 +25,7 @@ def download_and_make_contrasts(subject, task, overwrite=False, verbose=0):
         with open(join(error_dir, 'task_download_%s_%s'
                 % (subject, task)), 'w+') as f:
             f.write('Failed downloading.')
+            return
     try:
         run_glm(subject, task, backend='nistats', verbose=verbose)
     except Exception as e:
@@ -43,7 +44,7 @@ def restart_failed():
     n_jobs = 16
     for name in os.listdir(error_dir):
         os.unlink(join(error_dir, name))
-        subject, task = name.split('_')
+        _, _, subject, task = name.split('_')
         restarts.append((subject, task))
     Parallel(n_jobs=n_jobs, verbose=10)(delayed(
         download_and_make_contrasts)(subject, task, verbose=1,
@@ -60,7 +61,8 @@ def download():
     subjects = fetch_subject_list()
     tasks = TASK_LIST
     Parallel(n_jobs=n_jobs, verbose=10)(delayed(
-        download_and_make_contrasts)(subject, task, verbose=1)
+        download_and_make_contrasts)(subject, task,
+                                     overwrite=True, verbose=1)
                                         for subject in subjects
                                         for task in tasks)
 
