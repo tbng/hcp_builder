@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: hcp-builder
-Version: 0.1
+Version: 0.1a0
 Summary: Download HCP rest + task data from the S3 repo,and runs the nistats/FSL GLM on time series.
 Home-page: https://gitlab.inria.fr/amensch/hcp_builder
 Author: Arthur Mensch
@@ -46,4 +46,4 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS
-Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
