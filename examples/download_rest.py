@@ -24,7 +24,7 @@ def restart_failed():
     n_jobs = 2
     Parallel(n_jobs=n_jobs, verbose=10)(delayed(
         download_experiment)(int(subject), data_type='rest', verbose=1,
-                             overwrite=True) for subject in [100206, 100307])
+                             overwrite=True) for subject in [209127, 665254])
 
 
 def download():
