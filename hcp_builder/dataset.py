@@ -276,7 +276,6 @@ def fetch_hcp_timeseries(data_dir=None,
         else:
             res.set_index(['subject', 'task', 'direction'],
                           inplace=True)
-        res = res.assign(confounds=[None] * res.shape[0])
     return res
 
 
