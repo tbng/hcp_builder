@@ -175,6 +175,7 @@ CONTRASTS = [["WM", 1, "2BK_BODY"],
              ["EMOTION", 5, "neg_SHAPES"],
              ["EMOTION", 6, "SHAPES-FACES"]]
 
+
 def _init_s3_connection(aws_key, aws_secret,
                         bucket_name,
                         host='s3.amazonaws.com'):
@@ -346,7 +347,7 @@ def fetch_hcp_contrasts(data_dir=None,
                     effect_map = join(effect_dir, 'effects_' + contrast_name +
                                       '.nii.gz')
                     if ((os.path.exists(z_map) and os.path.exists(effect_map))
-                            or not on_disk):
+                        or not on_disk):
                         res.append({'z_map': z_map,
                                     'effect_map': effect_map,
                                     'subject': subject,
@@ -588,38 +589,71 @@ def fetch_hcp_mask(data_dir=None, url=None, resume=True):
 
 
 def fetch_hcp(data_dir=None, n_subjects=None, subjects=None,
+              from_file=False,
               on_disk=True):
     root = get_data_dirs(data_dir)[0]
-    if not os.path.exists(root):
-        os.makedirs(root)
-    rest = fetch_hcp_timeseries(data_dir, data_type='rest',
-                                n_subjects=n_subjects, subjects=subjects,
-                                on_disk=on_disk)
-    task = fetch_hcp_timeseries(data_dir, data_type='task',
-                                n_subjects=n_subjects, subjects=subjects,
-                                on_disk=on_disk)
-    contrasts = fetch_hcp_contrasts(data_dir,
-                                    output='nistats',
-                                    n_subjects=n_subjects,
-                                    subjects=subjects,
-                                    on_disk=on_disk)
-    behavioral = fetch_behavioral_data(data_dir)
     mask = fetch_hcp_mask(data_dir)
-    indices = []
-    for df in rest, task, contrasts:
-        if not df.empty:
-            indices.append(df.index.get_level_values('subject').
-                           unique().values)
-    if indices:
-        index = indices[0]
-        for this_index in indices[1:]:
-            index = np.union1d(index, this_index)
-        behavioral = behavioral.loc[index]
+    if not from_file:
+        rest = fetch_hcp_timeseries(data_dir, data_type='rest',
+                                    n_subjects=n_subjects, subjects=subjects,
+                                    on_disk=on_disk)
+        task = fetch_hcp_timeseries(data_dir, data_type='task',
+                                    n_subjects=n_subjects, subjects=subjects,
+                                    on_disk=on_disk)
+        contrasts = fetch_hcp_contrasts(data_dir,
+                                        output='nistats',
+                                        n_subjects=n_subjects,
+                                        subjects=subjects,
+                                        on_disk=on_disk)
+        behavioral = fetch_behavioral_data(data_dir)
+        indices = []
+        for df in rest, task, contrasts:
+            if not df.empty:
+                indices.append(df.index.get_level_values('subject').
+                               unique().values)
+        if indices:
+            index = indices[0]
+            for this_index in indices[1:]:
+                index = np.union1d(index, this_index)
+            behavioral = behavioral.loc[index]
+        else:
+            behavioral = pd.DataFrame([])
     else:
-        behavioral = pd.DataFrame([])
+        rest = pd.read_csv(join(root, 'parietal', 'rest.csv'))
+        task = pd.read_csv(join(root, 'parietal', 'task.csv'))
+        contrasts = pd.read_csv(join(root, 'parietal',
+                                     'contrasts.csv'))
+        behavioral = pd.read_csv(join(root, 'parietal',
+                                      'behavioral.csv'))
+        behavioral.set_index('subject', inplace=True)
+        rest.set_index(['subject', 'session', 'direction'], inplace=True)
+        task.set_index(['subject', 'task', 'direction'], inplace=True)
+        contrasts.set_index(['subject', 'task', 'contrast', 'direction'],
+                            inplace=True)
+        if subjects is None:
+            subjects = fetch_subject_list(data_dir=data_dir,
+                                          n_subjects=n_subjects)
+        rest = rest.loc[subjects]
+        task = task.loc[subjects]
+        contrasts = contrasts.loc[subjects]
+        behavioral = behavioral.loc[subjects]
+
     return Bunch(rest=rest,
                  contrasts=contrasts,
                  task=task,
                  behavioral=behavioral,
                  mask=mask,
                  root=root)
+
+
+def dump_hcp_csv(data_dir=None):
+    dataset = fetch_hcp(data_dir, on_disk=True)
+    data_dir = get_data_dirs(data_dir)[0]
+    dataset.rest.to_csv(join(data_dir, 'parietal',
+                             'rest.csv'))
+    dataset.task.to_csv(join(data_dir, 'parietal',
+                             'task.csv'))
+    dataset.contrasts.to_csv(join(data_dir, 'parietal',
+                                  'contrasts.csv'))
+    dataset.behavioral.to_csv(join(data_dir, 'parietal',
+                                   'behavioral.csv'))
