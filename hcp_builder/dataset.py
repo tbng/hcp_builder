@@ -249,8 +249,8 @@ def fetch_hcp_timeseries(data_dir=None,
                              'Movement_RelativeRMS_mean.txt',
                              'Movement_RelativeRMS.txt']
                 res_dict = {'filename': filename, 'mask': mask}
-                for i, confound in enumerate(confounds):
-                    res_dict['confound_%i' % i] = join(root_dir, confound)
+                # for i, confound in enumerate(confounds):
+                #     res_dict['confound_%i' % i] = join(root_dir, confound)
                 if data_type is 'task':
                     feat_file = join(root_dir,
                                      "tfMRI_%s_%s_hp200_s4_level1.fsf"
