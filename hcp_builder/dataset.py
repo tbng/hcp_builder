@@ -583,7 +583,7 @@ def fetch_hcp_mask(data_dir=None, url=None, resume=True):
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
     if url is None:
-        url = 'http://amensch.fr/data/HCP_own/mask_img.nii.gz'
+        url = 'http://amensch.fr/data/mask/mask_img.nii.gz'
     _fetch_file(url, data_dir, resume=resume)
     return join(data_dir, 'mask_img.nii.gz')
 
