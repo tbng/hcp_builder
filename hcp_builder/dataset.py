@@ -249,6 +249,7 @@ def fetch_hcp_timeseries(data_dir=None,
                              'Movement_RelativeRMS_mean.txt',
                              'Movement_RelativeRMS.txt']
                 res_dict = {'filename': filename, 'mask': mask}
+                print(filename)
                 # for i, confound in enumerate(confounds):
                 #     res_dict['confound_%i' % i] = join(root_dir, confound)
                 if data_type is 'task':
@@ -258,8 +259,7 @@ def fetch_hcp_timeseries(data_dir=None,
                     res_dict['feat_file'] = feat_file
                     for i, ev in enumerate(EVS[task]):
                         res_dict['ev_%i' % i] = join(root_dir, 'EVs', ev)
-                requested_on_disk = all(os.path.exists(file) for file
-                                        in res_dict.values())
+                requested_on_disk = os.path.exists(filename)
                 res_dict['subject'] = subject
                 res_dict['direction'] = direction
                 if data_type == 'rest':
@@ -583,7 +583,7 @@ def fetch_hcp_mask(data_dir=None, url=None, resume=True):
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
     if url is None:
-        url = 'http://amensch.fr/data/mask/mask_img.nii.gz'
+        url = 'http://amensch.fr/data/cogspaces/mask/mask_img.nii.gz'
     _fetch_file(url, data_dir, resume=resume)
     return join(data_dir, 'mask_img.nii.gz')
 

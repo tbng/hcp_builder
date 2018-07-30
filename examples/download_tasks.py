@@ -2,7 +2,7 @@ import os
 import traceback
 from os.path import join
 
-from hcp_builder.dataset import download_experiment, fetch_subject_list,\
+from hcp_builder.dataset import download_experiment, fetch_subject_list, \
     TASK_LIST
 from sklearn.externals.joblib import Parallel
 from sklearn.externals.joblib import delayed
@@ -23,7 +23,7 @@ def download_and_make_contrasts(subject, task, overwrite=False, verbose=0):
               % (subject, task))
         traceback.print_exc()
         with open(join(error_dir, 'task_download_%s_%s'
-                % (subject, task)), 'w+') as f:
+                                  % (subject, task)), 'w+') as f:
             f.write('Failed downloading.')
             return
     try:
@@ -33,7 +33,21 @@ def download_and_make_contrasts(subject, task, overwrite=False, verbose=0):
               ' subject %s ' % (task, subject))
         traceback.print_exc()
         with open(join(error_dir, 'task_glm_%s_%s'
-                % (subject, task)), 'w+') as f:
+                                  % (subject, task)), 'w+') as f:
+            f.write('Failed making contrasts.')
+
+
+def make_contrasts(subject, task, overwrite=False, verbose=0):
+    data_dir = get_data_dirs()[0]
+    error_dir = join(data_dir, 'failures')
+    try:
+        run_glm(subject, task, backend='nistats', verbose=verbose)
+    except Exception as e:
+        print('Failed making contrasts for task %s,'
+              ' subject %s ' % (task, subject))
+        traceback.print_exc()
+        with open(join(error_dir, 'task_glm_%s_%s'
+                                  % (subject, task)), 'w+') as f:
             f.write('Failed making contrasts.')
 
 
@@ -60,11 +74,26 @@ def download():
     n_jobs = 36
     subjects = fetch_subject_list()
     tasks = TASK_LIST
-    Parallel(n_jobs=n_jobs, verbose=10)(delayed(
-        download_and_make_contrasts)(subject, task,
-                                     overwrite=True, verbose=1)
+    Parallel(n_jobs=n_jobs, verbose=10)(delayed(make_contrasts)(subject, task,
+                                                                overwrite=True,
+                                                                verbose=1)
                                         for subject in subjects
                                         for task in tasks)
 
+
+def contrasts():
+    data_dir = get_data_dirs()[0]
+    error_dir = join(data_dir, 'failures')
+    if not os.path.exists(error_dir):
+        os.makedirs(error_dir)
+    n_jobs = 36
+    subjects = fetch_subject_list()
+    tasks = TASK_LIST
+    Parallel(n_jobs=n_jobs, verbose=10)(delayed(
+        make_contrasts)(subject, task,
+                        overwrite=True, verbose=1) for subject in subjects
+                                        for task in tasks)
+
+
 if __name__ == '__main__':
-    restart_failed()
+    contrasts()

@@ -261,7 +261,7 @@ def run_nistats_glm(subject, task, verbose=0):
                                        hrf_model=hrf_model,
                                        drift_model=drift_model,
                                        drift_order=drift_order,
-                                       subject_id=session,
+                                       subject_label=session,
                                        verbose=verbose-1)
         level1_model.fit(fmri_file, events)
         session_models[session] = level1_model

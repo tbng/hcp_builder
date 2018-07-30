@@ -48,5 +48,6 @@ def download_subset():
     Parallel(n_jobs=n_jobs, verbose=10)(delayed(
         download_single)(subject, verbose=2) for subject in subjects)
 
+
 if __name__ == '__main__':
     restart_failed()
