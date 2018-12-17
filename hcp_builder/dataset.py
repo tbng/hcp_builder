@@ -187,7 +187,7 @@ def _init_s3_connection(aws_key, aws_secret,
 def _convert_to_s3_target(filename, data_dir=None):
     data_dir = get_data_dirs(data_dir)[0]
     if data_dir in filename:
-        filename = filename.replace(data_dir, '/HCP_900')
+        filename = filename.replace(data_dir, '/HCP_1200')
     return filename
 
 
@@ -418,7 +418,7 @@ def download_experiment(subject,
                         overwrite=False,
                         mock=False,
                         verbose=0):
-    aws_key, aws_secret, _, _ = get_credentials(data_dir + 'credentials.txt')
+    aws_key, aws_secret, _, _ = get_credentials(data_dir=data_dir)
     bucket = _init_s3_connection(aws_key, aws_secret, 'hcp-openaccess')
     targets = fetch_hcp_timeseries(data_dir=data_dir,
                                    subjects=subject,
@@ -426,7 +426,8 @@ def download_experiment(subject,
                                    tasks=tasks,
                                    on_disk=False,
                                    sessions=sessions).values.ravel().tolist()
-    keys = list(map(_convert_to_s3_target, targets))
+    
+    keys = [_convert_to_s3_target(target, data_dir) for target in targets]
 
     try:
         download_from_s3(bucket, keys[0], targets[0], mock=True,
