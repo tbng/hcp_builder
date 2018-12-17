@@ -418,7 +418,7 @@ def download_experiment(subject,
                         overwrite=False,
                         mock=False,
                         verbose=0):
-    aws_key, aws_secret, _, _ = get_credentials(data_dir)
+    aws_key, aws_secret, _, _ = get_credentials(data_dir + 'credentials.txt')
     bucket = _init_s3_connection(aws_key, aws_secret, 'hcp-openaccess')
     targets = fetch_hcp_timeseries(data_dir=data_dir,
                                    subjects=subject,
