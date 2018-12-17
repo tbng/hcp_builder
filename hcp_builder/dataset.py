@@ -400,8 +400,8 @@ def fetch_behavioral_data(data_dir=None,
     return df
 
 
-def fetch_subject_list(data_dir=None, n_subjects=None, only_terminated=True):
-    df = fetch_behavioral_data(data_dir=data_dir)
+def fetch_subject_list(data_dir=None, n_subjects=None, only_terminated=True, overwrite=False):
+    df = fetch_behavioral_data(data_dir=data_dir, overwrite=overwrite)
     if only_terminated:
         indices = np.logical_and(df['3T_RS-fMRI_PctCompl'] == 100,
                                  df['3T_tMRI_PctCompl'] == 100)
