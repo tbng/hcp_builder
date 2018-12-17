@@ -378,7 +378,7 @@ def fetch_behavioral_data(data_dir=None,
                                  'search/dict/Subject%20Information/results?'
                                  'format=csv&removeDelimitersFromFieldValues'
                                  '=true'
-                                 '&restricted=0&project=HCP_900',
+                                 '&restricted=0&project=HCP_1200',
                              username=username, password=password)
         os.rename(result, csv_unrestricted)
     csv_restricted = join(behavioral_dir, 'hcp_restricted_data.csv')
